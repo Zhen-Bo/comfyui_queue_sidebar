@@ -1,0 +1,18 @@
+{
+  "running": "Running",
+  "pending": "Pending",
+  "completed": "Completed",
+  "failed": "Failed",
+  "cancelled": "Cancelled",
+  "noTasks": "No tasks found",
+  "fitImage": "Fit image (contain)",
+  "fillImage": "Fill image (cover)",
+  "clearAll": "Clear all tasks and history",
+  "confirmDelete": "Do you want to delete all tasks?",
+  "cancel": "Cancel",
+  "delete": "Delete",
+  "deleteTask": "Delete",
+  "interruptTask": "Interrupt",
+  "loadWorkflow": "Load workflow",
+  "queue": "Queue"
+}

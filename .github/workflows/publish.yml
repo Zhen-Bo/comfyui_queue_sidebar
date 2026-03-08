@@ -1,0 +1,36 @@
+name: Publish to Comfy Registry
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+"
+
+jobs:
+  publish-node:
+    name: Publish Custom Node to Registry
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      # Tag trigger → use tag as version
+      - name: Sync version from tag to pyproject.toml
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          echo "🏷️ Tag detected: $TAG"
+          sed -i "s/^version = .*/version = \"$TAG\"/" pyproject.toml
+          grep '^version' pyproject.toml
+
+      # Manual trigger → use pyproject.toml version as-is
+      - name: Show version (manual trigger)
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        run: |
+          echo "📋 Using version from pyproject.toml:"
+          grep '^version' pyproject.toml
+
+      - name: Publish Custom Node
+        uses: Comfy-Org/publish-node-action@main
+        with:
+          personal_access_token: ${{ secrets.REGISTRY_ACCESS_TOKEN }}
