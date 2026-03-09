@@ -280,10 +280,24 @@ function onStatus() {
   refresh()
 }
 
-function onExecutionStart() {
+function onExecutionStart({ detail }) {
   if (state.progressUrl) {
     URL.revokeObjectURL(state.progressUrl)
     state.progressUrl = null
+  }
+  // Immediately move the task from pending → running using the prompt_id from the WS
+  // event, without waiting for a /queue API fetch. This ensures the badge and card
+  // appear instantly — including for fast or fully-cached workflows where the task
+  // can complete before the API fetch returns.
+  const promptId = detail?.prompt_id
+  if (promptId) {
+    const pendIdx = state.pending.findIndex(t => t.promptId === promptId)
+    if (pendIdx >= 0) {
+      const [moved] = state.pending.splice(pendIdx, 1)
+      state.running = [{ ...moved, status: 'running' }]
+    } else if (state.running.every(t => t.promptId !== promptId)) {
+      state.running = [{ promptId, status: 'running', outputs: {} }]
+    }
   }
   render()
 }

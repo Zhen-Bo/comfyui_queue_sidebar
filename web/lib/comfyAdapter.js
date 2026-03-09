@@ -114,7 +114,12 @@ export function normalizeQueue(data) {
             console.warn('[QueueSidebar] Unexpected queue_running entry shape:', tuple)
             return null
         }
-        return { promptId: String(tuple[0]), status: 'running', outputs: {} }
+        // Use UUID (tuple[1]) when available so the promptId matches the pending card's ID,
+        // enabling card reconciliation across the pending→running transition.
+        // Fall back to String(tuple[0]) only for single-element tuples ComfyUI may send
+        // before full execution context is available.
+        const promptId = tuple.length >= 2 ? tuple[1] : String(tuple[0])
+        return { promptId, status: 'running', outputs: {} }
     }).filter(Boolean)
 
     const pending = (data.queue_pending ?? []).map((tuple) => {
