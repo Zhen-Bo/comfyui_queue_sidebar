@@ -206,7 +206,7 @@ function render() {
   updateBadge()
   if (!gridEl) return
 
-  const allTasks = [...state.running, ...state.pending, ...state.history]
+  const allTasks = [...state.pending, ...state.running, ...state.history]
 
   if (allTasks.length === 0) {
     gridEl.innerHTML =
