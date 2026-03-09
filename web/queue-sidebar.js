@@ -269,6 +269,7 @@ function buildSidebar(sidebarEl) {
   )
   scrollEl.appendChild(gridEl)
   sidebarEl.appendChild(scrollEl)
+  render()
   refresh()
 }
 
