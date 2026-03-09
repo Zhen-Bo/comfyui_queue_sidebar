@@ -69,7 +69,7 @@ git clone https://github.com/Zhen-Bo/comfyui_queue_sidebar.git
 
 ## 相容性
 
-- **ComfyUI 前端** v1.33.1+（已在 1.35.9 測試正常）
+- **ComfyUI 前端** v1.33.1+（已測試至 1.39.19）· **ComfyUI 核心** 已測試至 0.16.4
 - 與內建的底部面板佇列並行運作，不會衝突
 - 插件使用公開的擴充 API 進行註冊和事件監聽。此外會掛鉤少量內部 API（如 `app.queuePrompt`、側邊欄分頁排序）以提供無縫體驗——所有此類整合點均集中於 [`comfyAdapter.js`](web/lib/comfyAdapter.js)，搭配功能偵測與優雅降級機制
 
