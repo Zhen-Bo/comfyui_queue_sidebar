@@ -110,11 +110,11 @@ export function updateTabBadge(app, count) {
  */
 export function normalizeQueue(data) {
     const running = (data.queue_running ?? []).map((tuple) => {
-        if (!Array.isArray(tuple) || tuple.length < 2) {
+        if (!Array.isArray(tuple) || tuple.length < 1) {
             console.warn('[QueueSidebar] Unexpected queue_running entry shape:', tuple)
             return null
         }
-        return { promptId: tuple[1], status: 'running', outputs: {} }
+        return { promptId: String(tuple[0]), status: 'running', outputs: {} }
     }).filter(Boolean)
 
     const pending = (data.queue_pending ?? []).map((tuple) => {

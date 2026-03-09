@@ -17,8 +17,9 @@ describe('normalizeQueue', () => {
             queue_pending: [[0, 'prompt-2', {}, {}]],
         }
         const result = normalizeQueue(data)
+        // running uses tuple[0] (sequence number) coerced to string
         expect(result.running).toEqual([
-            { promptId: 'prompt-1', status: 'running', outputs: {} },
+            { promptId: '1', status: 'running', outputs: {} },
         ])
         expect(result.pending).toEqual([
             { promptId: 'prompt-2', status: 'pending', outputs: {} },
@@ -40,8 +41,9 @@ describe('normalizeQueue', () => {
             queue_pending: [],
         }
         const result = normalizeQueue(data)
+        // tuple[0] = 1 → String(1) = '1'
         expect(result.running).toEqual([
-            { promptId: 'valid-id', status: 'running', outputs: {} },
+            { promptId: '1', status: 'running', outputs: {} },
         ])
         expect(spy).toHaveBeenCalledOnce()
         spy.mockRestore()
@@ -67,7 +69,8 @@ describe('normalizeQueue', () => {
         const result = normalizeQueue(data)
         expect(result.running).toHaveLength(3)
         expect(result.pending).toHaveLength(2)
-        expect(result.running.map((r) => r.promptId)).toEqual(['r1', 'r2', 'r3'])
+        // running: tuple[0] sequence numbers coerced to strings
+        expect(result.running.map((r) => r.promptId)).toEqual(['1', '2', '3'])
         expect(result.pending.map((p) => p.promptId)).toEqual(['p1', 'p2'])
     })
 })
