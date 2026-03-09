@@ -203,6 +203,7 @@ function updateBadge() {
 }
 
 function render() {
+  updateBadge()
   if (!gridEl) return
 
   const allTasks = [...state.running, ...state.pending, ...state.history]
@@ -214,7 +215,6 @@ function render() {
       `color:var(--p-text-muted-color,#888)">` +
       `<i class="pi pi-info-circle" style="font-size:2rem;margin-bottom:12px"></i>` +
       `<span style="font-size:13px">${t('noTasks')}</span></div>`
-    updateBadge()
     return
   }
 
@@ -248,7 +248,6 @@ function render() {
   }
 
   for (const card of existing.values()) card.remove()
-  updateBadge()
 }
 
 // ─── Sidebar setup ────────────────────────────────────────────────────────────
@@ -295,15 +294,47 @@ function onProgressPreview({ detail }) {
   render()
 }
 
+// ─── Badge style injection ─────────────────────────────────────────────────────
+
+function injectBadgeStyle() {
+  const id = 'queue-sidebar-badge-style'
+  if (document.getElementById(id)) return
+  const style = document.createElement('style')
+  style.id = id
+  style.textContent =
+    '.sidebar-icon-badge{font-size:9px!important;min-width:14px!important;line-height:13px!important}' +
+    '.sidebar-icon-wrapper:has(.pi-history) .sidebar-icon-badge{top:-7px!important;right:-7px!important}'
+  document.head.appendChild(style)
+}
+
 // ─── Register ─────────────────────────────────────────────────────────────────
 
 app.registerExtension({
   name: 'ComfyUI.QueueSidebar',
 
+  commands: [
+    {
+      id: 'ComfyUI.QueueSidebar.Toggle',
+      label: () => t('queue'),
+      icon: 'pi pi-history',
+      function() {
+        app.extensionManager.sidebarTab?.toggleSidebarTab('queue')
+      },
+    },
+  ],
+
+  keybindings: [
+    {
+      commandId: 'ComfyUI.QueueSidebar.Toggle',
+      combo: { key: 'q' },
+    },
+  ],
+
   async setup() {
     // Load translations from web/locales/<locale>.json
     await loadI18n()
 
+    injectBadgeStyle()
     hookQueuePrompt(app, refresh)
 
     api.addEventListener('status', onStatus)
