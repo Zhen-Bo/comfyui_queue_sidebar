@@ -299,6 +299,24 @@ function onProgressPreview({ detail }) {
 app.registerExtension({
   name: 'ComfyUI.QueueSidebar',
 
+  commands: [
+    {
+      id: 'ComfyUI.QueueSidebar.Toggle',
+      label: () => t('queue'),
+      icon: 'pi pi-history',
+      function() {
+        app.extensionManager.sidebarTab?.toggleSidebarTab('queue')
+      },
+    },
+  ],
+
+  keybindings: [
+    {
+      commandId: 'ComfyUI.QueueSidebar.Toggle',
+      combo: { key: 'q' },
+    },
+  ],
+
   async setup() {
     // Load translations from web/locales/<locale>.json
     await loadI18n()
