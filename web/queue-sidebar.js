@@ -294,6 +294,18 @@ function onProgressPreview({ detail }) {
   render()
 }
 
+// ─── Badge style injection ─────────────────────────────────────────────────────
+
+function injectBadgeStyle() {
+  const id = 'queue-sidebar-badge-style'
+  if (document.getElementById(id)) return
+  const style = document.createElement('style')
+  style.id = id
+  style.textContent =
+    '.sidebar-icon-badge{font-size:9px!important;min-width:14px!important;line-height:13px!important}'
+  document.head.appendChild(style)
+}
+
 // ─── Register ─────────────────────────────────────────────────────────────────
 
 app.registerExtension({
@@ -321,6 +333,7 @@ app.registerExtension({
     // Load translations from web/locales/<locale>.json
     await loadI18n()
 
+    injectBadgeStyle()
     hookQueuePrompt(app, refresh)
 
     api.addEventListener('status', onStatus)
