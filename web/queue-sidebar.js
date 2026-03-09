@@ -203,6 +203,7 @@ function updateBadge() {
 }
 
 function render() {
+  updateBadge()
   if (!gridEl) return
 
   const allTasks = [...state.running, ...state.pending, ...state.history]
@@ -214,7 +215,6 @@ function render() {
       `color:var(--p-text-muted-color,#888)">` +
       `<i class="pi pi-info-circle" style="font-size:2rem;margin-bottom:12px"></i>` +
       `<span style="font-size:13px">${t('noTasks')}</span></div>`
-    updateBadge()
     return
   }
 
@@ -248,7 +248,6 @@ function render() {
   }
 
   for (const card of existing.values()) card.remove()
-  updateBadge()
 }
 
 // ─── Sidebar setup ────────────────────────────────────────────────────────────
