@@ -302,7 +302,8 @@ function injectBadgeStyle() {
   const style = document.createElement('style')
   style.id = id
   style.textContent =
-    '.sidebar-icon-badge{font-size:9px!important;min-width:14px!important;line-height:13px!important}'
+    '.sidebar-icon-badge{font-size:9px!important;min-width:14px!important;line-height:13px!important}' +
+    '.sidebar-icon-wrapper:has(.pi-history) .sidebar-icon-badge{top:-7px!important;right:-7px!important}'
   document.head.appendChild(style)
 }
 
