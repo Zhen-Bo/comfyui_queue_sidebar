@@ -13,7 +13,7 @@ import {
 describe('normalizeQueue', () => {
     it('normalizes a standard queue response', () => {
         const data = {
-            queue_running: [['prompt-1', 'id1', {}, {}]],
+            queue_running: [[1, 'prompt-1', {}, {}]],
             queue_pending: [[0, 'prompt-2', {}, {}]],
         }
         const result = normalizeQueue(data)
@@ -36,7 +36,7 @@ describe('normalizeQueue', () => {
     it('filters out malformed running entries and warns', () => {
         const spy = vi.spyOn(console, 'warn').mockImplementation(() => { })
         const data = {
-            queue_running: ['not-an-array', ['valid-id']],
+            queue_running: ['not-an-array', [1, 'valid-id']],
             queue_pending: [],
         }
         const result = normalizeQueue(data)
@@ -61,7 +61,7 @@ describe('normalizeQueue', () => {
 
     it('handles multiple running and pending items', () => {
         const data = {
-            queue_running: [['r1'], ['r2'], ['r3']],
+            queue_running: [[1, 'r1'], [2, 'r2'], [3, 'r3']],
             queue_pending: [[0, 'p1'], [1, 'p2']],
         }
         const result = normalizeQueue(data)
