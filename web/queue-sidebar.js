@@ -233,8 +233,9 @@ function render() {
       existing.delete(task.promptId)
       // Status changed → rebuild card to sync preview, overlay, and event handlers
       if (card.dataset.status !== task.status) {
-        card.replaceWith(makeCard(task))
-        card = gridEl.children[i] ?? makeCard(task)
+        const newCard = makeCard(task)
+        card.replaceWith(newCard)
+        card = newCard
       } else if (task.status === 'running') {
         updateRunningPreview(card, state.progressUrl)
       }
