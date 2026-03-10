@@ -142,6 +142,22 @@ describe('Card reuse logic (render reconciliation)', () => {
         expect(gridEl.children[0].dataset.id).toBe('a')
     })
 
+    // Regression test: pending tasks must appear before running tasks.
+    // queue-sidebar.js allTasks must be [...state.pending, ...state.running, ...state.history]
+    it('pending tasks appear before running tasks in the grid', () => {
+        const tasks = [
+            { promptId: 'pending-1', status: 'pending' },
+            { promptId: 'running-1', status: 'running' },
+        ]
+        reconcile(gridEl, tasks, makeCardFn)
+
+        expect(gridEl.children).toHaveLength(2)
+        expect(gridEl.children[0].dataset.id).toBe('pending-1')
+        expect(gridEl.children[0].dataset.status).toBe('pending')
+        expect(gridEl.children[1].dataset.id).toBe('running-1')
+        expect(gridEl.children[1].dataset.status).toBe('running')
+    })
+
     it('handles multiple status transitions in the same render', () => {
         gridEl.appendChild(createMockCard('a', 'running'))
         gridEl.appendChild(createMockCard('b', 'pending'))

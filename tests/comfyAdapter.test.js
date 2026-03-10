@@ -13,16 +13,32 @@ import {
 describe('normalizeQueue', () => {
     it('normalizes a standard queue response', () => {
         const data = {
-            queue_running: [['prompt-1', 'id1', {}, {}]],
+            queue_running: [[1, 'prompt-1', {}, {}]],
             queue_pending: [[0, 'prompt-2', {}, {}]],
         }
         const result = normalizeQueue(data)
+        // running uses tuple[1] (UUID) so promptId is consistent with pending
         expect(result.running).toEqual([
             { promptId: 'prompt-1', status: 'running', outputs: {} },
         ])
         expect(result.pending).toEqual([
             { promptId: 'prompt-2', status: 'pending', outputs: {} },
         ])
+    })
+
+    it('running promptId matches the pending promptId for the same task (no card rebuild on transition)', () => {
+        // A task starts as pending with its UUID as promptId.
+        // When it moves to running, normalizeQueue must return the same UUID
+        // so render() reconciliation finds the existing card instead of rebuilding it.
+        const uuid = 'abc-123-def-456'
+        const pendingData = { queue_running: [], queue_pending: [[1, uuid, {}, {}]] }
+        const runningData = { queue_running: [[1, uuid, {}, {}]], queue_pending: [] }
+
+        const fromPending = normalizeQueue(pendingData)
+        const fromRunning = normalizeQueue(runningData)
+
+        expect(fromPending.pending[0].promptId).toBe(uuid)
+        expect(fromRunning.running[0].promptId).toBe(uuid) // must match — same card, no rebuild
     })
 
     it('returns empty arrays when no queue data', () => {
@@ -36,14 +52,31 @@ describe('normalizeQueue', () => {
     it('filters out malformed running entries and warns', () => {
         const spy = vi.spyOn(console, 'warn').mockImplementation(() => { })
         const data = {
-            queue_running: ['not-an-array', ['valid-id']],
+            queue_running: ['not-an-array', [1, 'valid-id']],
             queue_pending: [],
         }
         const result = normalizeQueue(data)
+        // tuple has length >= 2, so uses tuple[1] (UUID)
         expect(result.running).toEqual([
             { promptId: 'valid-id', status: 'running', outputs: {} },
         ])
         expect(spy).toHaveBeenCalledOnce()
+        spy.mockRestore()
+    })
+
+    it('falls back to String(tuple[0]) for single-element running tuples', () => {
+        // ComfyUI may send [number] before full execution context is available.
+        // We must not filter these out — fall back to the sequence number as ID.
+        const spy = vi.spyOn(console, 'warn').mockImplementation(() => { })
+        const data = {
+            queue_running: [[42]],
+            queue_pending: [],
+        }
+        const result = normalizeQueue(data)
+        expect(result.running).toEqual([
+            { promptId: '42', status: 'running', outputs: {} },
+        ])
+        expect(spy).not.toHaveBeenCalled()
         spy.mockRestore()
     })
 
@@ -61,12 +94,13 @@ describe('normalizeQueue', () => {
 
     it('handles multiple running and pending items', () => {
         const data = {
-            queue_running: [['r1'], ['r2'], ['r3']],
+            queue_running: [[1, 'r1'], [2, 'r2'], [3, 'r3']],
             queue_pending: [[0, 'p1'], [1, 'p2']],
         }
         const result = normalizeQueue(data)
         expect(result.running).toHaveLength(3)
         expect(result.pending).toHaveLength(2)
+        // running: tuple[1] UUIDs
         expect(result.running.map((r) => r.promptId)).toEqual(['r1', 'r2', 'r3'])
         expect(result.pending.map((p) => p.promptId)).toEqual(['p1', 'p2'])
     })

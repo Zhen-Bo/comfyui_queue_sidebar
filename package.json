@@ -1,12 +1,13 @@
 {
   "name": "comfyui_queue_sidebar",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "private": true,
   "description": "ComfyUI sidebar extension — brings back the queue panel with image previews",
   "type": "module",
   "scripts": {
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:e2e": "playwright test"
   },
   "repository": {
     "type": "git",
@@ -15,6 +16,7 @@
   "license": "MIT",
   "devDependencies": {
     "jsdom": "^28.1.0",
+    "playwright": "^1.58.2",
     "vitest": "^4.0.18"
   }
 }
