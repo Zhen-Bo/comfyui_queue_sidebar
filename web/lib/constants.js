@@ -2,7 +2,7 @@
 
 export const IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'svg'])
 export const VIDEO_EXTS = new Set(['mp4', 'webm', 'ogg', 'mov', 'mkv', 'avi'])
-export const AUDIO_EXTS = new Set(['mp3', 'wav', 'ogg', 'flac', 'm4a', 'aac'])
+export const AUDIO_EXTS = new Set(['mp3', 'wav', 'oga', 'flac', 'm4a', 'aac'])
 export const MAX_HISTORY_ITEMS = 64
 
 export const STATUS_COLOR = {
