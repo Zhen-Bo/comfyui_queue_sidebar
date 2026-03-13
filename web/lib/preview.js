@@ -47,7 +47,7 @@ export function renderVideoPreview(wrap, url, imageFit) {
  */
 export function renderOutputPreview(wrap, task, deps) {
     const { firstOutput, viewUrl, imageFit } = deps
-    const output = firstOutput(task.outputs)
+    const output = firstOutput(task.outputs, task.promptId)
     if (!output) {
         const icon = task.status === 'failed' ? 'pi-exclamation-circle' : 'pi-check-circle'
         const color = task.status === 'failed' ? STATUS_COLOR.failed : 'var(--p-text-muted-color,#888)'

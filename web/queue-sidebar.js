@@ -11,6 +11,7 @@ import {
   getComfyLocale, hookQueuePrompt, reorderQueueTab,
   updateTabBadge, normalizeQueue, normalizeHistoryItem,
 } from './lib/comfyAdapter.js'
+import { firstOutput, saveOutputCache } from './lib/outputCache.js' // saveOutputCache wired in onExecuted (see below)
 
 // ─── i18n ──────────────────────────────────────────────────────────────────────
 // Translations are loaded from web/locales/<locale>.json at startup.
@@ -62,18 +63,6 @@ function viewUrl(result) {
   return api.apiURL(`/view?${p}`)
 }
 
-function firstOutput(outputs = {}) {
-  for (const nodeOutputs of Object.values(outputs)) {
-    for (const key of ['images', 'gifs', 'video', 'audio']) {
-      const val = nodeOutputs[key]
-      if (!val) continue
-      const item = Array.isArray(val) ? val[0] : val
-      if (item?.filename) return item
-    }
-  }
-  return null
-}
-
 // ─── Data fetching ────────────────────────────────────────────────────────────
 
 async function fetchQueue() {
@@ -114,7 +103,7 @@ async function refresh() {
 function galleryItems() {
   return state.history
     .map((task) => {
-      const output = firstOutput(task.outputs)
+      const output = firstOutput(task.outputs, task.promptId)
       if (!output) return null
       const type = mediaType(output.filename)
       if (type !== 'image' && type !== 'video') return null
@@ -177,7 +166,7 @@ function makeCard(task) {
   card.appendChild(overlay)
 
   card.addEventListener('click', () => {
-    const output = firstOutput(task.outputs)
+    const output = firstOutput(task.outputs, task.promptId)
     if (!output) return
     const type = mediaType(output.filename)
     if (type !== 'image' && type !== 'video') return
