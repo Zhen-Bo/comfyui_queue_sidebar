@@ -159,14 +159,123 @@ test.describe('Queue Sidebar E2E', () => {
     await waitForQueueEmpty(page)
   })
 
+  // ── #5 — Running card preview reflects live execution previews ────
+  test('running card preview shows img element during execution', async ({ page }) => {
+    const wf = await getModifiedWorkflow(page)
+    test.skip(!wf, 'No workflow available')
+
+    await queuePrompt(page, wf)
+
+    // Wait for a running card to appear
+    await expect(page.locator('[data-status="running"]').first())
+      .toBeAttached({ timeout: 10_000 })
+
+    // Poll until we observe a running card with an <img> element, OR the
+    // task finishes. Using a manual loop avoids a race where the card
+    // transitions to completed between the two separate evaluate() calls
+    // that toPass() would make.
+    let sawRunningWithImg = false
+    const pollStart = Date.now()
+    while (Date.now() - pollStart < 60_000) {
+      const result = await page.evaluate(() => {
+        const card = document.querySelector('[data-status="running"]')
+        if (!card) return 'completed'
+        return card.querySelector('.task-preview img') ? 'has-img' : 'no-img'
+      })
+      if (result === 'has-img') { sawRunningWithImg = true; break }
+      if (result === 'completed') break
+      await page.waitForTimeout(200)
+    }
+
+    expect(sawRunningWithImg).toBe(true)
+    await waitForQueueEmpty(page)
+  })
+
+  // ── #7 — Completed card shows preview; persists after reload ───────
+  test('completed card shows preview image and persists after page reload', async ({ page }) => {
+    const wf = await getModifiedWorkflow(page)
+    test.skip(!wf, 'No workflow available')
+
+    await queuePrompt(page, wf)
+    await waitForQueueEmpty(page)
+    await page.waitForTimeout(1500) // let render cycle complete
+
+    // Completed card must have an <img> whose src contains /view?filename=
+    const completedCard = page.locator('[data-status="completed"]').first()
+    await expect(completedCard).toBeAttached({ timeout: 10_000 })
+
+    // Wait for the img to be present before reading its src
+    const imgLocator = completedCard.locator('.task-preview img').first()
+    await expect(imgLocator).toBeAttached({ timeout: 5_000 })
+    const imgSrc = await imgLocator.getAttribute('src')
+    expect(imgSrc).toMatch(/\/view\?/)
+
+    // Extract filename to verify it's the same image after reload (cache hit)
+    const beforeFilename = new URLSearchParams(imgSrc.split('?')[1]).get('filename')
+    expect(beforeFilename).toBeTruthy()
+
+    // Reload and confirm the same card still shows the same image (localStorage cache hit)
+    await page.reload({ waitUntil: 'networkidle' })
+    await page.waitForTimeout(2000)
+    await openSidebar(page)
+
+    const reloadedImg = page.locator('[data-status="completed"] .task-preview img').first()
+    await expect(reloadedImg).toBeAttached({ timeout: 5_000 })
+    const reloadedSrc = await reloadedImg.getAttribute('src')
+    expect(reloadedSrc).toMatch(/\/view\?/)
+
+    // Same filename proves the preview came from localStorage cache, not a random re-fetch
+    const afterFilename = new URLSearchParams(reloadedSrc.split('?')[1]).get('filename')
+    expect(afterFilename).toBe(beforeFilename)
+  })
+
+  // ── #8 — localStorage cache is populated after execution ───────────
+  test('localStorage cache is populated with output after execution', async ({ page }) => {
+    const wf = await getModifiedWorkflow(page)
+    test.skip(!wf, 'No workflow available')
+
+    const queueResult = await queuePrompt(page, wf)
+    const promptId = queueResult?.prompt_id
+    test.skip(!promptId, 'Queue response did not include prompt_id')
+
+    await waitForQueueEmpty(page)
+    await page.waitForTimeout(1000)
+
+    const cacheEntry = await page.evaluate((pid) => {
+      try {
+        const raw = localStorage.getItem('queueSidebar.lastOutput')
+        if (!raw) return null
+        const cache = JSON.parse(raw)
+        return cache[pid] ?? null
+      } catch {
+        return null
+      }
+    }, promptId)
+
+    expect(cacheEntry).not.toBeNull()
+    expect(typeof cacheEntry.filename).toBe('string')
+    expect(cacheEntry.filename.length).toBeGreaterThan(0)
+  })
+
   // ── #6 — No [QueueSidebar] console.warn during normal operation ────
   test('no QueueSidebar console warnings during normal operation', async ({ page }) => {
-    const warnings = []
-    page.on('console', msg => {
-      if (msg.type() === 'warning' && msg.text().includes('[QueueSidebar]')) {
-        warnings.push(msg.text())
+    // Intercept console.warn at the JS level BEFORE page load so we capture
+    // warnings emitted during extension initialisation (i18n fetch failures,
+    // setup errors, etc.) — not just warnings emitted after test setup.
+    await page.addInitScript(() => {
+      window.__qsWarnings = []
+      const origWarn = console.warn.bind(console)
+      console.warn = (...args) => {
+        const msg = args.map(a => (typeof a === 'string' ? a : String(a))).join(' ')
+        if (msg.includes('[QueueSidebar]')) window.__qsWarnings.push(msg)
+        origWarn(...args)
       }
     })
+
+    // Navigate fresh so the init script runs before any extension code executes
+    await page.goto('/', { waitUntil: 'networkidle', timeout: 30_000 })
+    await page.waitForTimeout(2000) // let extensions load
+    await openSidebar(page)
 
     const wf = await getModifiedWorkflow(page)
     if (wf) {
@@ -175,6 +284,8 @@ test.describe('Queue Sidebar E2E', () => {
     }
 
     await page.waitForTimeout(1000)
+
+    const warnings = await page.evaluate(() => window.__qsWarnings)
     expect(warnings).toEqual([])
   })
 })

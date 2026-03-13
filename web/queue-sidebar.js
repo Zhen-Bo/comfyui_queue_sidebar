@@ -11,6 +11,7 @@ import {
   getComfyLocale, hookQueuePrompt, reorderQueueTab,
   updateTabBadge, normalizeQueue, normalizeHistoryItem,
 } from './lib/comfyAdapter.js'
+import { firstOutput, saveOutputCache } from './lib/outputCache.js' // saveOutputCache wired in onExecuted (see below)
 
 // ─── i18n ──────────────────────────────────────────────────────────────────────
 // Translations are loaded from web/locales/<locale>.json at startup.
@@ -53,6 +54,11 @@ const state = {
 
 // ─── Data helpers ─────────────────────────────────────────────────────────────
 
+function clearProgressUrl() {
+  if (state.progressUrl?.startsWith('blob:')) URL.revokeObjectURL(state.progressUrl)
+  state.progressUrl = null
+}
+
 function viewUrl(result) {
   const p = new URLSearchParams({
     filename: result.filename,
@@ -60,18 +66,6 @@ function viewUrl(result) {
     type: result.type ?? 'output',
   })
   return api.apiURL(`/view?${p}`)
-}
-
-function firstOutput(outputs = {}) {
-  for (const nodeOutputs of Object.values(outputs)) {
-    for (const key of ['images', 'gifs', 'video', 'audio']) {
-      const val = nodeOutputs[key]
-      if (!val) continue
-      const item = Array.isArray(val) ? val[0] : val
-      if (item?.filename) return item
-    }
-  }
-  return null
 }
 
 // ─── Data fetching ────────────────────────────────────────────────────────────
@@ -114,7 +108,7 @@ async function refresh() {
 function galleryItems() {
   return state.history
     .map((task) => {
-      const output = firstOutput(task.outputs)
+      const output = firstOutput(task.outputs, task.promptId)
       if (!output) return null
       const type = mediaType(output.filename)
       if (type !== 'image' && type !== 'video') return null
@@ -177,7 +171,7 @@ function makeCard(task) {
   card.appendChild(overlay)
 
   card.addEventListener('click', () => {
-    const output = firstOutput(task.outputs)
+    const output = firstOutput(task.outputs, task.promptId)
     if (!output) return
     const type = mediaType(output.filename)
     if (type !== 'image' && type !== 'video') return
@@ -281,10 +275,7 @@ function onStatus() {
 }
 
 function onExecutionStart({ detail }) {
-  if (state.progressUrl) {
-    URL.revokeObjectURL(state.progressUrl)
-    state.progressUrl = null
-  }
+  clearProgressUrl()
   // Immediately move the task from pending → running using the prompt_id from the WS
   // event, without waiting for a /queue API fetch. This ensures the badge and card
   // appear instantly — including for fast or fully-cached workflows where the task
@@ -304,10 +295,27 @@ function onExecutionStart({ detail }) {
 
 function onProgressPreview({ detail }) {
   if (state.running.length === 0) return
-  const prev = state.progressUrl
-  if (prev) URL.revokeObjectURL(prev)
+  clearProgressUrl()
   state.progressUrl = URL.createObjectURL(detail)
   render()
+}
+
+function onExecuted({ detail }) {
+  const prompt_id = detail?.prompt_id
+  const output = detail?.output
+  if (!prompt_id || !state.running.some(t => t.promptId === prompt_id)) return
+  for (const key of ['images', 'gifs', 'video', 'audio']) {
+    const val = output?.[key]
+    if (!val || (Array.isArray(val) && val.length === 0)) continue
+    const item = Array.isArray(val) ? val[0] : val
+    if (item?.filename) {
+      clearProgressUrl()
+      state.progressUrl = viewUrl(item)
+      saveOutputCache(prompt_id, item)
+      render()
+      break
+    }
+  }
 }
 
 // ─── Badge style injection ─────────────────────────────────────────────────────
@@ -356,6 +364,7 @@ app.registerExtension({
     api.addEventListener('status', onStatus)
     api.addEventListener('execution_start', onExecutionStart)
     api.addEventListener('b_preview', onProgressPreview)
+    api.addEventListener('executed', onExecuted)
 
     app.extensionManager.registerSidebarTab({
       id: 'queue',
@@ -370,10 +379,7 @@ app.registerExtension({
       },
 
       destroy() {
-        if (state.progressUrl) {
-          URL.revokeObjectURL(state.progressUrl)
-          state.progressUrl = null
-        }
+        clearProgressUrl()
         gridEl = null
         scrollEl = null
       },
