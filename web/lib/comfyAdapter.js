@@ -6,12 +6,10 @@
  * APIs change, only this file needs updating.
  *
  * Integration points (all guarded with feature detection):
- *  1. queuePrompt hook  — monkey-patches app.queuePrompt (wrap, not replace)
- *  2. sidebar tab order  — mutates sidebarTabs array to reposition the tab
- *  3. badge update       — reads sidebarTabs to set iconBadge
- *  4. queue schema       — normalizes /queue response tuples
- *  5. history schema     — normalizes /history response shape
- *  6. locale detection   — reads Comfy.Locale setting
+ *  1. badge update       — reads sidebarTabs to set iconBadge
+ *  2. queue schema       — normalizes /queue response tuples
+ *  3. history schema     — normalizes /history response shape
+ *  4. locale detection   — reads Comfy.Locale setting
  */
 
 // ─── Locale ───────────────────────────────────────────────────────────────────
@@ -30,57 +28,7 @@ export function getComfyLocale(app) {
     }
 }
 
-// ─── Queue prompt hook ────────────────────────────────────────────────────────
-
-/**
- * Wrap app.queuePrompt to call `onQueued` after each prompt submission.
- * This is a monkey-patch — logged explicitly so breakage is auditable.
- *
- * @param {object} app - ComfyUI app instance
- * @param {Function} onQueued - callback to invoke after prompt is queued
- */
-export function hookQueuePrompt(app, onQueued) {
-    try {
-        const orig = app.queuePrompt?.bind(app)
-        if (typeof orig !== 'function') {
-            console.warn('[QueueSidebar] app.queuePrompt is not a function — hook skipped (degraded mode)')
-            return
-        }
-        app.queuePrompt = async (...args) => {
-            const result = await orig(...args)
-            onQueued()
-            return result
-        }
-    } catch (err) {
-        console.warn('[QueueSidebar] Could not hook queuePrompt (degraded mode):', err)
-    }
-}
-
 // ─── Sidebar tab management ──────────────────────────────────────────────────
-
-/**
- * Attempt to reorder the sidebar tabs so 'queue' appears after 'assets'.
- * Accesses internal sidebarTabs array — guarded with feature detection.
- *
- * @param {object} app - ComfyUI app instance
- */
-export function reorderQueueTab(app) {
-    try {
-        const tabs = app.extensionManager?.sidebarTab?.sidebarTabs
-        if (!Array.isArray(tabs)) {
-            console.warn('[QueueSidebar] sidebarTabs not found — tab reorder skipped (degraded mode)')
-            return
-        }
-        const queueIdx = tabs.findIndex((tab) => tab.id === 'queue')
-        if (queueIdx > 0) {
-            const [queueTab] = tabs.splice(queueIdx, 1)
-            const assetsIdx = tabs.findIndex((tab) => tab.id === 'assets')
-            tabs.splice(assetsIdx >= 0 ? assetsIdx + 1 : 1, 0, queueTab)
-        }
-    } catch (err) {
-        console.warn('[QueueSidebar] Could not reorder sidebar tabs (degraded mode):', err)
-    }
-}
 
 /**
  * Update the icon badge on the 'queue' sidebar tab.

@@ -28,6 +28,12 @@ export const GALLERY_NAV_BTN =
     'position:fixed;top:50%;transform:translateY(-50%);' +
     'background:rgba(255,255,255,.1);border:none;color:rgba(255,255,255,.8);' +
     'font-size:2rem;padding:12px 18px;cursor:pointer;border-radius:6px'
+// Shared shape for the top-corner buttons (close, load-workflow); each caller
+// prepends its own top/right offset plus background/color (they differ), and
+// `display:` where needed.
+export const GALLERY_CORNER_BTN =
+    'position:fixed;border:none;font-size:1.1rem;' +
+    'padding:8px 12px;cursor:pointer;border-radius:6px'
 export const TOOLBAR_BTN =
     'background:none;border:none;cursor:pointer;padding:6px;border-radius:4px;' +
     'color:var(--input-text,#eee);font-size:14px'

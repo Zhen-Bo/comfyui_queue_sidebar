@@ -1,8 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
     getComfyLocale,
-    hookQueuePrompt,
-    reorderQueueTab,
     updateTabBadge,
     normalizeQueue,
     normalizeHistoryItem,
@@ -203,74 +201,6 @@ describe('getComfyLocale', () => {
         const spy = vi.spyOn(console, 'warn').mockImplementation(() => { })
         expect(getComfyLocale({})).toBe('en')
         expect(spy).toHaveBeenCalledOnce()
-        spy.mockRestore()
-    })
-})
-
-// ─── hookQueuePrompt ──────────────────────────────────────────────────────────
-
-describe('hookQueuePrompt', () => {
-    it('wraps queuePrompt and calls onQueued after', async () => {
-        const onQueued = vi.fn()
-        const origResult = { id: '123' }
-        const app = { queuePrompt: vi.fn().mockResolvedValue(origResult) }
-
-        hookQueuePrompt(app, onQueued)
-
-        const result = await app.queuePrompt(1, 0)
-        expect(result).toEqual(origResult)
-        expect(onQueued).toHaveBeenCalledOnce()
-    })
-
-    it('warns and skips when queuePrompt is missing', () => {
-        const spy = vi.spyOn(console, 'warn').mockImplementation(() => { })
-        const app = {}
-        hookQueuePrompt(app, vi.fn())
-        expect(spy).toHaveBeenCalled()
-        spy.mockRestore()
-    })
-
-    it('warns when app is totally broken', () => {
-        const spy = vi.spyOn(console, 'warn').mockImplementation(() => { })
-        hookQueuePrompt(null, vi.fn())
-        expect(spy).toHaveBeenCalled()
-        spy.mockRestore()
-    })
-})
-
-// ─── reorderQueueTab ──────────────────────────────────────────────────────────
-
-describe('reorderQueueTab', () => {
-    it('moves queue tab after assets tab', () => {
-        const tabs = [
-            { id: 'search' },
-            { id: 'assets' },
-            { id: 'nodes' },
-            { id: 'queue' },
-        ]
-        const app = { extensionManager: { sidebarTab: { sidebarTabs: tabs } } }
-        reorderQueueTab(app)
-        expect(tabs.map((t) => t.id)).toEqual(['search', 'assets', 'queue', 'nodes'])
-    })
-
-    it('does nothing when queue tab is already at position 0', () => {
-        const tabs = [{ id: 'queue' }, { id: 'assets' }]
-        const app = { extensionManager: { sidebarTab: { sidebarTabs: tabs } } }
-        reorderQueueTab(app)
-        expect(tabs.map((t) => t.id)).toEqual(['queue', 'assets'])
-    })
-
-    it('places queue at index 1 when no assets tab', () => {
-        const tabs = [{ id: 'search' }, { id: 'nodes' }, { id: 'queue' }]
-        const app = { extensionManager: { sidebarTab: { sidebarTabs: tabs } } }
-        reorderQueueTab(app)
-        expect(tabs.map((t) => t.id)).toEqual(['search', 'queue', 'nodes'])
-    })
-
-    it('warns when sidebarTabs is not available', () => {
-        const spy = vi.spyOn(console, 'warn').mockImplementation(() => { })
-        reorderQueueTab({})
-        expect(spy).toHaveBeenCalled()
         spy.mockRestore()
     })
 })
