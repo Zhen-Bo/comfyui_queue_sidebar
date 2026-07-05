@@ -1,6 +1,6 @@
 {
   "name": "comfyui_queue_sidebar",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "private": true,
   "description": "ComfyUI sidebar extension — brings back the queue panel with image previews",
   "type": "module",
