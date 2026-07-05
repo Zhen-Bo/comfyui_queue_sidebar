@@ -14,5 +14,9 @@
   "deleteTask": "Delete",
   "interruptTask": "Interrupt",
   "loadWorkflow": "Load workflow",
+  "close": "Close",
+  "copyFailed": "Failed to copy image",
+  "copied": "Image copied",
+  "galleryHelp": "←/→ switch · scroll to zoom · drag to pan · Ctrl+C copy · Esc close",
   "queue": "Queue"
 }

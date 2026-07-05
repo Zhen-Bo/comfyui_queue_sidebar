@@ -30,18 +30,40 @@ export function mediaType(filename) {
 
 // ─── Toast Notification ───────────────────────────────────────────────────────
 
-export function showToast(message, duration = 3000) {
+/**
+ * Show a transient toast at the bottom of the screen. Uses an opaque dark-grey
+ * background that matches how the gallery corner buttons look over the dark
+ * overlay (a translucent-white fill would read differently against a bright
+ * image), with a coloured text + border to signal tone; defaults to the error
+ * red. Any toast already on screen is cleared first so only the latest shows.
+ * @param {string} message
+ * @param {number} [duration=1500] - visible time in ms before fade-out
+ * @param {string} [color] - CSS colour for text and border; defaults to the error red
+ */
+export function showToast(message, duration = 1500, color = 'var(--p-red-500,#ef4444)') {
+    for (const prev of document.querySelectorAll('.queue-sidebar-toast')) prev.remove()
     const toast = el(
         'div',
-        'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:99999;' +
-        'padding:10px 20px;border-radius:8px;font-size:13px;color:#fff;' +
-        'background:var(--p-red-500,#ef4444);box-shadow:0 4px 12px rgba(0,0,0,.3);' +
-        'transition:opacity .3s ease',
+        'position:fixed;bottom:64px;left:50%;z-index:99999;' +
+        'padding:10px 20px;border-radius:8px;font-size:13px;' +
+        `color:${color};border:1px solid ${color};` +
+        'background-color:#1a1a1a;box-shadow:0 4px 12px rgba(0,0,0,.3);' +
+        'transition:opacity .3s ease,transform .3s ease',
         message,
     )
+    // Start below and transparent (set on style directly, not via cssText, so the
+    // animated properties are addressable and survive per-property updates).
+    toast.style.opacity = '0'
+    toast.style.transform = 'translate(-50%,16px)'
+    toast.className = 'queue-sidebar-toast'
     document.body.appendChild(toast)
+    // Next frame → slide up into place and fade in (a same-frame set wouldn't transition).
+    requestAnimationFrame(() => {
+        toast.style.opacity = '1'
+        toast.style.transform = 'translate(-50%,0)'
+    })
     setTimeout(() => {
-        toast.style.opacity = '0'
+        toast.style.opacity = '0' // fade out (position holds)
         setTimeout(() => toast.remove(), 300)
     }, duration)
 }

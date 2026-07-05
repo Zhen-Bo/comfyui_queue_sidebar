@@ -14,5 +14,9 @@
   "deleteTask": "刪除",
   "interruptTask": "中斷",
   "loadWorkflow": "載入工作流程",
+  "close": "關閉",
+  "copyFailed": "複製圖片失敗",
+  "copied": "已複製圖片",
+  "galleryHelp": "←/→ 切換 · 滾輪縮放 · 長按拖曳 · Ctrl+C 複製 · Esc 離開",
   "queue": "佇列"
 }

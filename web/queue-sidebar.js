@@ -177,7 +177,7 @@ function makeCard(task) {
     if (type !== 'image' && type !== 'video') return
     const items = galleryItems()
     const idx = items.findIndex((it) => it.task.promptId === task.promptId)
-    if (idx !== -1) openGallery(items, idx)
+    if (idx !== -1) openGallery(items, idx, { app, t })
   })
 
   card.addEventListener('contextmenu', (e) =>
