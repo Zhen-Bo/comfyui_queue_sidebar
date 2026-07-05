@@ -13,7 +13,9 @@ import {
 import { firstOutput, saveOutputCache } from './lib/outputCache.js' // saveOutputCache wired in onExecuted (see below)
 
 // ─── i18n ──────────────────────────────────────────────────────────────────────
-// Translations are loaded from web/locales/<locale>.json at startup.
+// Translations are loaded from web/locales/<locale>.json at startup, fetched with
+// `cache: 'no-cache'` so JSON edits take effect on reload instead of serving a stale
+// copy (the module graph updates but a plain fetch would keep the cached JSON).
 
 let _translations = {}
 let _fallback = {}
@@ -26,11 +28,11 @@ async function loadI18n() {
   const base = new URL('.', import.meta.url).href + 'locales'
   const locale = getLocale()
   try {
-    _fallback = await fetch(`${base}/en.json`).then((r) => r.json())
+    _fallback = await fetch(`${base}/en.json`, { cache: 'no-cache' }).then((r) => r.json())
   } catch (err) { console.warn('[QueueSidebar] Failed to load fallback (en) translations:', err) }
   if (locale !== 'en') {
     try {
-      _translations = await fetch(`${base}/${locale}.json`).then((r) => r.json())
+      _translations = await fetch(`${base}/${locale}.json`, { cache: 'no-cache' }).then((r) => r.json())
     } catch (err) { console.warn(`[QueueSidebar] Failed to load ${locale} translations, using fallback:`, err); _translations = _fallback }
   } else {
     _translations = _fallback
