@@ -8,8 +8,7 @@ import { showContextMenu } from './lib/contextMenu.js'
 import { makePreview, updateRunningPreview } from './lib/preview.js'
 import { buildToolbar } from './lib/toolbar.js'
 import {
-  getComfyLocale, hookQueuePrompt, reorderQueueTab,
-  updateTabBadge, normalizeQueue, normalizeHistoryItem,
+  getComfyLocale, updateTabBadge, normalizeQueue, normalizeHistoryItem,
 } from './lib/comfyAdapter.js'
 import { firstOutput, saveOutputCache } from './lib/outputCache.js' // saveOutputCache wired in onExecuted (see below)
 
@@ -359,7 +358,6 @@ app.registerExtension({
     await loadI18n()
 
     injectBadgeStyle()
-    hookQueuePrompt(app, refresh)
 
     api.addEventListener('status', onStatus)
     api.addEventListener('execution_start', onExecutionStart)
@@ -384,7 +382,5 @@ app.registerExtension({
         scrollEl = null
       },
     })
-
-    reorderQueueTab(app)
   },
 })
