@@ -34,6 +34,8 @@ export const GALLERY_NAV_BTN =
 export const GALLERY_CORNER_BTN =
     'position:fixed;border:none;font-size:1.1rem;' +
     'padding:8px 12px;cursor:pointer;border-radius:6px'
+// Geometry only. `background` and `color` deliberately live in the injected
+// `.queue-toolbar-btn` rule instead: an inline `background:none` outranks every
+// stylesheet, so hover/active/flash states could never paint over it.
 export const TOOLBAR_BTN =
-    'background:none;border:none;cursor:pointer;padding:6px;border-radius:4px;' +
-    'color:var(--input-text,#eee);font-size:14px'
+    'border:none;cursor:pointer;padding:6px;border-radius:4px;font-size:14px'
