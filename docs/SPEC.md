@@ -1,7 +1,7 @@
 # ComfyUI Queue Sidebar — Software Specification
 
 - **Status:** Living document
-- **Targets:** 1.3.0
+- **Targets:** 1.4.0
 - **Audience:** maintainers, contributors, ComfyUI extension developers
 - **Related:** [ARCHITECTURE.md](./ARCHITECTURE.md)
 

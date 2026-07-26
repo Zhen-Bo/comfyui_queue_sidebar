@@ -1,7 +1,7 @@
 # ComfyUI Queue Sidebar — 軟體規格
 
 - **狀態：** 持續維護文件
-- **目標版本：** 1.3.0
+- **目標版本：** 1.4.0
 - **對象：** 維護者、貢獻者、ComfyUI 擴充開發者
 - **相關：** [ARCHITECTURE.md](./ARCHITECTURE.md)
 - **English:** [../SPEC.md](../SPEC.md)
