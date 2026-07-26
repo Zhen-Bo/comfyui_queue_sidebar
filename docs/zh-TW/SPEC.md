@@ -5,6 +5,7 @@
 - **對象：** 維護者、貢獻者、ComfyUI 擴充開發者
 - **相關：** [ARCHITECTURE.md](./ARCHITECTURE.md)
 - **English:** [../SPEC.md](../SPEC.md)
+- **基準版本：** 若中英版本不一致，以英文版為準。
 
 ---
 
@@ -79,9 +80,8 @@ flowchart LR
   退回字典逐一走訪（向後相容）。
 - **所有卡片預覽一律 contain，不提供切換設定。** 圖片以自身的模糊放大副本填滿格子，完整圖疊在
   上層（`preview.fillContain`），因此格子永遠是滿的、圖片永遠不被裁切。即時預覽與完成後的卡片
-  組成方式完全相同——過去執行中卡片硬寫 `object-fit:cover`，導致每次生成結束、完成圖取代最後一
-  張串流影格時，畫面都會明顯重新構圖。影片使用單純的 `contain`，不加模糊背景，否則每個可見格子
-  都要多跑一個解碼器。
+  組成方式完全相同，因此輸出送達時卡片不會有明顯的重新構圖。影片使用單純的 `contain`，不加模糊
+  背景，否則每個可見格子都要多跑一個解碼器。
 
 ### FR-3 — 任務狀態生命週期
 - 狀態轉換遵循 [ARCHITECTURE.md](./ARCHITECTURE.md#5-state-machine--task-lifecycle) 的狀態機。
@@ -134,10 +134,10 @@ flowchart LR
 - **清除等待中** 單擊只清空等待佇列（`POST /queue {clear}`）（`toolbar.createClearPendingButton`）。
   使用內聯 SVG `list-x` 圖示（衍生自 Lucide Icons，ISC 授權）。它是**出現或消失，不會變灰**，且必須在佇列持續非空達
   `CLEAR_PENDING_REVEAL_DELAY_MS`（500ms）後才出現——送出單一任務時 pending 幾乎立刻轉為 running，沒有這
-  段延遲按鈕會閃一下就不見。反向不設延遲：佇列一空就立即開始收起的淡出動畫。但點擊按鈕會跳過該收起
-  動畫，瞬間消失以提供即時回饋——與下方中斷執行中相同的主動點擊／被動隱藏之分。
+  段延遲按鈕會閃一下就不見。反向不設延遲：佇列一空就立即開始收起的淡出動畫。但點擊按鈕會完全跳過該
+  收起動畫：清除請求完成後就直接消失，不播放抽屜動畫——與下方中斷執行中相同的主動點擊／被動隱藏之分。
 - **中斷執行中** 單擊中斷目前執行中的任務（`POST /interrupt`）（`toolbar.createInterruptButton`）。
-  使用 PrimeIcons `pi-stop` 圖示。它是**出現或消失，不會變灰**，在 `running` 非空時立即出現（`INTERRUPT_REVEAL_DELAY_MS` = 0）。當使用者主動點擊時，按鈕無延遲、無動畫立即隱藏，提供即時回饋；當 `running` 被動變為空時（任務自然結束），經 300ms 延遲（`INTERRUPT_HIDE_DELAY_MS` = 300ms）才隱藏，防止連續任務之間閃爍。
+  使用 PrimeIcons `pi-stop` 圖示。它是**出現或消失，不會變灰**，在 `running` 非空時立即出現（`INTERRUPT_REVEAL_DELAY_MS` = 0）。當使用者主動點擊時，中斷請求與 refresh 完成後才會隱藏——不播放收起動畫；當 `running` 被動變為空時（任務自然結束），經 300ms 延遲（`INTERRUPT_HIDE_DELAY_MS` = 300ms）才隱藏，防止連續任務之間閃爍。
 - **清除歷史** 單擊只清空歷史（`POST /history {clear}`）；長按 `HOLD_DURATION_MS` 會畫滿一圈進度環，
   完成瞬間同時清空與中斷所有工作（依序發送 `POST /queue {clear}` → 若有執行中任務則 `POST /interrupt` → `POST /history {clear}`）
   （`toolbar.createClearHistoryButton`）。進入長按模式後提早放開則完全不動作。
@@ -171,7 +171,7 @@ flowchart LR
 - **NFR-3 Registry 合規** —— 盡量減少觸發 Comfy Registry 安全審查的模式；在有官方 API 或事件可用時
   避免 mutate ComfyUI 內部。
 - **NFR-4 可測試性** —— 產生 DOM 的邏輯以 Vitest + jsdom 單元測試；每個 `lib/` 模組都有對應的
-  `tests/*.test.js`。
+  `tests/*.test.js`，唯獨 `constants.js` 例外（純資料，無需單元測試）。
 - **NFR-5 效能** —— 渲染採用 keyed reconciliation；執行中卡片的預覽就地更新，不整體重建，只有畫面上
   沒有執行中卡片時才會退回完整 `render()`。卡片的 hover 放大（`preview.js`）是純 CSS 的 `:hover`
   規則，以 `@media (hover:hover) and (pointer:fine)` 限定，並提供 `prefers-reduced-motion` 選擇退出
@@ -217,9 +217,9 @@ flowchart LR
 
 ## 6. 驗證
 
-自動化（Vitest）：每個 `lib/` 模組都有單元測試；新的 view-mode 互動新增 `tests/gallery.test.js`。
-端對端行為（Playwright）涵蓋載入、卡片排序、即時預覽、輸出快取、view mode、右鍵選單、工具列與
-國際化；驗收需要一個運行中的 ComfyUI 實例。
+自動化（Vitest）：每個 `lib/` 模組都有單元測試，唯獨 `constants.js` 例外（純資料）；新的 view-mode
+互動新增 `tests/gallery.test.js`。端對端行為（Playwright）涵蓋載入、卡片排序、即時預覽、輸出快取、
+view mode、右鍵選單、工具列與國際化；驗收需要一個運行中的 ComfyUI 實例。
 
 ---
 

@@ -83,10 +83,9 @@ flowchart LR
 - **Every card preview is contained, with no user-facing fit setting.** An image fills its
   cell as a blurred, over-scaled copy of itself with the whole picture laid on top
   (`preview.fillContain`), so cells are always full and nothing is ever cropped. Live
-  previews are composed identically to finished ones — previously the running card was
-  hardcoded to `object-fit:cover`, so every generation ended with the picture visibly
-  reframing as the finished output replaced the last streamed frame. Video is plain
-  `contain` without the blurred backdrop, which would cost a second decoder per visible cell.
+  previews are composed identically to finished ones, so a card never visibly reframes when
+  its output arrives. Video is plain `contain` without the blurred backdrop, which would cost
+  a second decoder per visible cell.
 
 ### FR-3 — Task status lifecycle
 - Status transitions follow the state machine in [ARCHITECTURE.md](./ARCHITECTURE.md#5-state-machine--task-lifecycle).
@@ -151,13 +150,13 @@ Right-click a card (`contextMenu.js`):
   non-empty for `CLEAR_PENDING_REVEAL_DELAY_MS` (500ms) — submitting a single prompt moves it from
   pending to running almost at once, and without the delay the button would flash into view
   and straight back out. There is no matching delay on the way out: an empty queue starts the
-  retract fade immediately. Clicking the button instead skips that retract altogether,
-  disappearing at once for instant confirmation — the same active-click/passive-hide split
-  documented for interrupt below.
+  retract fade immediately. Clicking the button instead skips that retract altogether: it
+  disappears once the clear request completes, with no drawer animation — the same
+  active-click/passive-hide split documented for interrupt below.
 - **Interrupt running** interrupts the currently active execution (`POST /interrupt`), single click
   (`toolbar.createInterruptButton`). Uses PrimeIcons `pi-stop` icon. It is **present or absent, never dimmed**,
   appearing immediately (`INTERRUPT_REVEAL_DELAY_MS` = 0) when `running` is non-empty. When a user actively clicks it,
-  it hides immediately without delay or retract animation for instant confirmation; when `running` empties passively (task finishes naturally), it hides after a 300ms
+  it hides — with no retract animation — once the interrupt request and refresh complete; when `running` empties passively (task finishes naturally), it hides after a 300ms
   debounce (`INTERRUPT_HIDE_DELAY_MS` = 300ms) to prevent UI flicker between back-to-back tasks.
 - **Clear history** clears only the history (`POST /history {clear}`) on a click; holding it
   for `HOLD_DURATION_MS` fills a progress ring and then clears everything (`POST /queue {clear}` → `POST /interrupt` if running → `POST /history {clear}`)
@@ -195,7 +194,8 @@ Right-click a card (`contextMenu.js`):
 - **NFR-3 Registry compliance** — minimize patterns that trigger Comfy Registry security
   review; avoid mutating ComfyUI internals where an official API or event exists.
 - **NFR-4 Testability** — DOM-producing logic is unit-tested with Vitest + jsdom; each `lib/`
-  module has a matching `tests/*.test.js`.
+  module has a matching `tests/*.test.js`, except `constants.js` (plain data, nothing to
+  unit-test).
 - **NFR-5 Performance** — rendering uses keyed reconciliation; running-card previews update in
   place without full rebuilds, falling back to a full `render()` only when no running card is
   currently on screen. Card hover scale (`preview.js`) is a pure CSS `:hover` rule gated behind
@@ -244,8 +244,8 @@ Right-click a card (`contextMenu.js`):
 
 ## 6. Verification
 
-Automated (Vitest): each `lib/` module has unit tests; new view-mode interactions add
-`tests/gallery.test.js`. End-to-end behaviour (Playwright) covers load, card ordering,
+Automated (Vitest): each `lib/` module has unit tests except `constants.js` (plain data); new
+view-mode interactions add `tests/gallery.test.js`. End-to-end behaviour (Playwright) covers load, card ordering,
 real-time preview, output cache, view mode, context menu, toolbar, and i18n; acceptance
 requires a running ComfyUI instance.
 

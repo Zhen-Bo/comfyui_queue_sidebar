@@ -75,7 +75,6 @@ flowchart TB
     main --> ctx
     main --> toolbar
     main --> cache
-    preview --> cache
     preview --> helpers
     gallery --> helpers
     gallery --> constants
@@ -84,7 +83,7 @@ flowchart TB
     toolbar --> helpers
     toolbar --> constants
     preview --> constants
-    adapter -.reads.-> comfyglobals[app / api globals]
+    adapter -.app param.-> comfyglobals[app / api globals]
     main -.registers.-> comfyglobals
     ctx -.loadGraphData.-> comfyglobals
     gallery -.loadGraphData.-> comfyglobals

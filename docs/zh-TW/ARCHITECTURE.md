@@ -3,6 +3,7 @@
 - **狀態：** 持續維護文件
 - **相關：** [SPEC.md](./SPEC.md)
 - **English:** [../ARCHITECTURE.md](../ARCHITECTURE.md)
+- **基準版本：** 若中英版本不一致，以英文版為準。
 
 > 圖表使用 Mermaid，可在 GitHub 原生渲染並隨程式碼一起版控。以下 C4 分層以 Mermaid flowchart
 > 表達以確保可靠渲染。
@@ -75,7 +76,6 @@ flowchart TB
     main --> ctx
     main --> toolbar
     main --> cache
-    preview --> cache
     preview --> helpers
     gallery --> helpers
     gallery --> constants
@@ -84,7 +84,7 @@ flowchart TB
     toolbar --> helpers
     toolbar --> constants
     preview --> constants
-    adapter -.reads.-> comfyglobals[app / api globals]
+    adapter -.app param.-> comfyglobals[app / api globals]
     main -.registers.-> comfyglobals
     ctx -.loadGraphData.-> comfyglobals
     gallery -.loadGraphData.-> comfyglobals
