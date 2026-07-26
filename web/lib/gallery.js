@@ -1,5 +1,5 @@
 import { GALLERY_NAV_BTN, GALLERY_CORNER_BTN } from './constants.js'
-import { el, elHtml, showToast } from './helpers.js'
+import { el, elHtml, showToast, prefersReducedMotion } from './helpers.js'
 
 // ─── Zoom / pan (images only) ───────────────────────────────────────────────────
 
@@ -8,12 +8,20 @@ const ZOOM_MIN = 1
 const ZOOM_MAX = 4
 
 /**
- * Wire wheel-zoom and drag-pan onto an image element. Scale is clamped to
- * [ZOOM_MIN, ZOOM_MAX]; panning is only active while zoomed in (scale > 1).
- * State lives in this closure and is baked into the element's CSS transform,
- * so re-rendering the image (on open / navigation) starts fresh at fit.
+ * Wire drag-pan onto an image element and return a controller for zooming it.
+ * Scale is clamped to [ZOOM_MIN, ZOOM_MAX]; panning is only active while
+ * zoomed in (scale > 1). State lives in this closure and is baked into the
+ * element's CSS transform, so re-rendering the image (on open / navigation)
+ * starts fresh at fit.
+ *
+ * Wheel is deliberately NOT bound to `media` here: the lightbox wants
+ * wheel-zoom to work anywhere over the overlay, including the dark surround,
+ * not just the image. openGallery instead binds a single persistent wheel
+ * listener on its content layer and forwards events to the current media's
+ * controller.onWheel.
  *
  * @param {HTMLElement} media - the gallery <img> element
+ * @returns {{ onWheel: (e: WheelEvent) => void }} controller to drive zoom externally
  */
 export function attachZoomPan(media) {
     let scale = ZOOM_MIN
@@ -35,14 +43,16 @@ export function attachZoomPan(media) {
     // instead of starting a browser drag-and-drop ghost.
     media.addEventListener('dragstart', (e) => e.preventDefault())
 
-    media.addEventListener('wheel', (e) => {
+    // Zoom logic lives here but is not bound to `media` — see the doc comment
+    // above for why. openGallery calls this from its own content-level listener.
+    const onWheel = (e) => {
         if (!e.deltaY) return // ignore horizontal swipes (deltaY 0) — don't zoom or block scroll
         e.preventDefault()
         const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP
         scale = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, scale + delta))
         if (scale <= ZOOM_MIN) { offsetX = 0; offsetY = 0 } // recenter when back at fit
         apply()
-    })
+    }
 
     media.addEventListener('pointerdown', (e) => {
         if (scale <= ZOOM_MIN) return // panning only applies while zoomed in
@@ -73,13 +83,34 @@ export function attachZoomPan(media) {
     media.addEventListener('pointerleave', endDrag)
 
     apply()
+
+    return { onWheel }
 }
 
 // ─── Gallery Overlay ──────────────────────────────────────────────────────────
 
+/**
+ * Backdrop fade-in. Shorter than the content so the dark ground is already
+ * settled by the time the media finishes arriving — a simultaneous slam of a
+ * 92%-black fill reads as a camera flash.
+ */
+const BACKDROP_ENTER_MS = 140
+/** Content fade + scale-up, trailing the backdrop slightly. */
+const CONTENT_ENTER_MS = 180
+/** Exit is one short fade for both layers: a lingering dismissal reads as lag. */
+const EXIT_MS = 100
+/** Strong ease-out. The built-in keywords are too soft to read at these durations. */
+const EASE_OUT = 'cubic-bezier(0.23,1,0.32,1)'
+
+/**
+ * @returns {{ media: HTMLElement, zoom: {onWheel:(e:WheelEvent)=>void}|null }}
+ *   `zoom` is null for video items — they have no zoom/pan, so the caller's
+ *   wheel routing can no-op instead of throwing.
+ */
 function createGalleryMedia(item) {
     const { type, url } = item
     let media
+    let zoom = null
     if (type === 'image') {
         media = el(
             'img',
@@ -87,7 +118,7 @@ function createGalleryMedia(item) {
             'border-radius:4px;box-shadow:0 8px 32px rgba(0,0,0,.6)',
         )
         media.src = url
-        attachZoomPan(media)
+        zoom = attachZoomPan(media)
     } else {
         media = el(
             'video',
@@ -99,7 +130,7 @@ function createGalleryMedia(item) {
     }
     media.className = 'gallery-media'
     media.addEventListener('click', (e) => e.stopPropagation())
-    return media
+    return { media, zoom }
 }
 
 function addHoverEffect(btn) {
@@ -165,20 +196,60 @@ async function copyImage(item, t) {
 
 export function openGallery(items, startIdx, deps = {}) {
     let idx = startIdx
+    // Controller for whichever media show() most recently rendered. Routed to
+    // from the single content-level wheel listener below — see attachZoomPan's
+    // doc comment for why wheel isn't bound directly to the media element.
+    let currentZoom = null
     const t = deps.t ?? ((k) => k)
     const app = deps.app
-    const overlay = el(
+    const animate = !prefersReducedMotion()
+    // Two layers, because the backdrop and the content move on different curves:
+    // `overlay` is the dark ground and owns the click-to-close target, `content`
+    // holds the media and all of its chrome and is what scales up.
+    const overlay = el('div', 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.92)')
+    overlay.className = 'gallery-overlay'
+    // Full-viewport box (inset:0) rather than a shrink-wrapped one, so the
+    // position:fixed chrome inside it — which the entrance transform turns into a
+    // containing block — keeps resolving its offsets against the viewport rect.
+    // The media element keeps its own zoom/pan transform; the entrance scale lives
+    // out here on the wrapper so the two never overwrite each other.
+    const content = el(
         'div',
-        'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.92);' +
-        'display:flex;align-items:center;justify-content:center',
+        'position:absolute;inset:0;display:flex;align-items:center;justify-content:center',
     )
+    overlay.appendChild(content)
+    content.className = 'gallery-content'
 
-    const close = () => { document.removeEventListener('keydown', onKey); overlay.remove() }
+    let closing = false
+    /**
+     * Dismiss the overlay. Idempotent — a second call while the fade-out is still
+     * pending is a no-op, so Esc, the backdrop click and ✕ can't double-remove or
+     * re-enter through a listener that outlived the first call.
+     * @param {object} [opts]
+     * @param {boolean} [opts.instant] - remove synchronously, no fade.
+     */
+    const close = (opts) => {
+        if (closing) return
+        closing = true
+        document.removeEventListener('keydown', onKey)
+        if (opts?.instant === true || !animate) { overlay.remove(); return }
+        overlay.style.transition = `opacity ${EXIT_MS}ms ${EASE_OUT}`
+        overlay.style.opacity = '0'
+        content.style.transition = `opacity ${EXIT_MS}ms ${EASE_OUT}`
+        content.style.opacity = '0'
+        // Timer, not transitionend: the event never fires for a detached or
+        // display:none'd overlay and the node would be stranded on screen.
+        setTimeout(() => overlay.remove(), EXIT_MS)
+    }
 
     const show = () => {
-        overlay.querySelector('.gallery-media')?.remove()
-        overlay.querySelector('.gallery-counter')?.remove()
-        overlay.appendChild(createGalleryMedia(items[idx]))
+        // Navigation between items is deliberately unanimated — users arrow through
+        // rapidly and a per-item fade would just smear.
+        content.querySelector('.gallery-media')?.remove()
+        content.querySelector('.gallery-counter')?.remove()
+        const { media, zoom } = createGalleryMedia(items[idx])
+        content.appendChild(media)
+        currentZoom = zoom // null for video — the wheel listener below no-ops on it
         if (items.length > 1) {
             const counter = el(
                 'div',
@@ -187,13 +258,13 @@ export function openGallery(items, startIdx, deps = {}) {
                 `${idx + 1} / ${items.length}`,
             )
             counter.className = 'gallery-counter'
-            overlay.appendChild(counter)
+            content.appendChild(counter)
         }
         loadBtn.style.display = items[idx].task?.workflow ? 'block' : 'none'
     }
 
     if (items.length > 1) {
-        createGalleryNav(overlay, items, () => idx, (v) => { idx = v }, show)
+        createGalleryNav(content, items, () => idx, (v) => { idx = v }, show)
     }
 
     const closeBtn = el(
@@ -205,7 +276,7 @@ export function openGallery(items, startIdx, deps = {}) {
     closeBtn.title = t('close')
     addHoverEffect(closeBtn) // translucent-grey button, red ✕ icon; hover brightens
     closeBtn.addEventListener('click', (e) => { e.stopPropagation(); close() })
-    overlay.appendChild(closeBtn)
+    content.appendChild(closeBtn)
 
     // Load-workflow button left of ✕ — same subtle grey button as ✕, but a white
     // icon. Visibility toggled per current item in show().
@@ -221,10 +292,12 @@ export function openGallery(items, startIdx, deps = {}) {
         e.stopPropagation()
         const wf = items[idx].task?.workflow
         if (!wf) return
+        // Instant, and before the load: loadGraphData blocks the main thread, so a
+        // fade started here would freeze mid-way and then snap.
+        close({ instant: true })
         app?.loadGraphData(wf)
-        close()
     })
-    overlay.appendChild(loadBtn)
+    content.appendChild(loadBtn)
 
     // Top-left help hint bar (SparkToComfy-style) — a non-interactive affordance reminder.
     const hint = el(
@@ -238,9 +311,14 @@ export function openGallery(items, startIdx, deps = {}) {
         t('galleryHelp'),
     )
     hint.className = 'gallery-hint'
-    overlay.appendChild(hint)
+    content.appendChild(hint)
 
-    overlay.addEventListener('click', close)
+    overlay.addEventListener('click', () => close())
+    // One listener for the lightbox's lifetime, bound to `content` (inset:0, so
+    // it already covers the full viewport including the dark surround) rather
+    // than to the media element — media is recreated per navigation, so binding
+    // there would accumulate listeners. Forwards to whichever media is current.
+    content.addEventListener('wheel', (e) => currentZoom?.onWheel(e))
 
     const onKey = (e) => {
         if (e.key === 'Escape') return close()
@@ -254,5 +332,26 @@ export function openGallery(items, startIdx, deps = {}) {
     }
     document.addEventListener('keydown', onKey)
     show()
+
+    if (animate) {
+        // Set on style directly, not via cssText, so these stay addressable when the
+        // flip below rewrites them.
+        overlay.style.opacity = '0'
+        overlay.style.transition = `opacity ${BACKDROP_ENTER_MS}ms ${EASE_OUT}`
+        content.style.opacity = '0'
+        content.style.transform = 'scale(.96)'
+        content.style.transition =
+            `opacity ${CONTENT_ENTER_MS}ms ${EASE_OUT},transform ${CONTENT_ENTER_MS}ms ${EASE_OUT}`
+    }
     document.body.appendChild(overlay)
+    if (animate) {
+        // Two frames, not one: appending and flipping in the same frame gives the
+        // browser nothing to interpolate from.
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+            if (closing) return
+            overlay.style.opacity = '1'
+            content.style.opacity = '1'
+            content.style.transform = 'scale(1)'
+        }))
+    }
 }
