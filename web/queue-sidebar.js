@@ -6,7 +6,7 @@ import { el, mediaType, safeApi } from './lib/helpers.js'
 import { openGallery } from './lib/gallery.js'
 import { showContextMenu } from './lib/contextMenu.js'
 import { makePreview, updateRunningPreview } from './lib/preview.js'
-import { buildToolbar } from './lib/toolbar.js'
+import { buildToolbar, syncToolbar, destroyToolbar } from './lib/toolbar.js'
 import {
   getComfyLocale, updateTabBadge, normalizeQueue, normalizeHistoryItem,
 } from './lib/comfyAdapter.js'
@@ -50,7 +50,6 @@ const state = {
   pending: [],
   history: [],
   progressUrl: null,
-  imageFit: 'contain',
 }
 
 // ─── Data helpers ─────────────────────────────────────────────────────────────
@@ -125,7 +124,6 @@ function previewDeps() {
     progressUrl: state.progressUrl,
     firstOutput,
     viewUrl,
-    imageFit: state.imageFit,
   }
 }
 
@@ -199,6 +197,7 @@ function updateBadge() {
 
 function render() {
   updateBadge()
+  syncToolbar()
   if (!gridEl) return
 
   const allTasks = [...state.pending, ...state.running, ...state.history]
@@ -263,6 +262,9 @@ function buildSidebar(sidebarEl) {
     'grid-template-columns:repeat(auto-fill,minmax(min(200px,100%),1fr));' +
     'gap:8px;padding:8px;align-content:start',
   )
+  // Hook for the toolbar's stylesheet: cards need their recede transition
+  // declared up-front so returning from a cancelled hold eases back too.
+  gridEl.className = 'queue-sidebar-grid'
   scrollEl.appendChild(gridEl)
   sidebarEl.appendChild(scrollEl)
   render()
@@ -388,6 +390,7 @@ app.registerExtension({
 
       destroy() {
         clearProgressUrl()
+        destroyToolbar() // stop any hold timer / rAF still running in the toolbar
         gridEl = null
         scrollEl = null
       },
