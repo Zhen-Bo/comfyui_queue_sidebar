@@ -66,8 +66,8 @@ export function showToast(message, duration = 1500, color = 'var(--p-red-500,#ef
         `transition:opacity 220ms ${EASE_OUT},transform 220ms ${EASE_OUT}`,
         message,
     )
-    // Start below and transparent (set on style directly, not via cssText, so the
-    // animated properties are addressable and survive per-property updates).
+    // Start below and transparent, set per-property rather than via cssText:
+    // assigning cssText replaces the whole declaration and would wipe these.
     toast.style.opacity = '0'
     toast.style.transform = 'translate(-50%,16px)'
     toast.className = 'queue-sidebar-toast'

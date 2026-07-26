@@ -1,5 +1,3 @@
-// ─── Output Cache ─────────────────────────────────────────────────────────────
-
 export const OUTPUT_CACHE_KEY = 'queueSidebar.lastOutput'
 export const OUTPUT_CACHE_MAX = 200
 
@@ -63,22 +61,18 @@ export const OUTPUT_KEYS = ['images', 'gifs', 'video', 'audio']
  * task — cache-first, falling back to a node/key scan of `outputs`.
  *
  * ponytail: expansion is scoped to exactly ONE (node, key) match, never
- * accumulated across nodes. An upscale workflow has a 512px base image in one
- * node and a 2048px result in another; flattening every node together would
- * put the two side by side, and if a thumbnail were casually switched to
- * `list[0]` the card would regress from the upscaled result back to the
- * pre-upscale image. The cache's job is choosing WHICH NODE wins —
- * `onExecuted` overwrites `cache[promptId]` per node, so it holds the
- * last-executed node's output, which is what makes multi-stage workflows show
- * the final image. That selection must keep working untouched. If "all
- * media" (every node, not just the winner) is ever actually required,
- * cross-node ordering, mixed media types, counter semantics, and cache
- * aggregation all need to be designed first — do not smuggle
- * array-flattening back in as a local fix.
+ * accumulated across nodes. An upscale workflow keeps a 512px base image in one
+ * node and its 2048px result in another; merging them would surface both, and a
+ * thumbnail taken from `list[0]` would regress to the pre-upscale image.
+ * Choosing the winning node is the cache's job — `onExecuted` overwrites
+ * `cache[promptId]` per node, so it holds the last-executed one. Widening this
+ * to every node needs cross-node ordering and mixed-media rules designed first;
+ * ARCHITECTURE.md records what that would involve.
  *
  * @param {object} outputs  - map of nodeId → node output object
  * @param {string} promptId
- * @returns {object[]}      - items with a `filename` property, all from one node; [] if none
+ * @returns {object[]}      - media items from one node; the scan path filters for
+ *                            `filename`, cache entries are returned as stored
  */
 export function taskOutputs(outputs = {}, promptId) {
     const cached = loadOutputCache(promptId)

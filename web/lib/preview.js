@@ -1,8 +1,6 @@
 import { STATUS_COLOR, MUTED_ICON } from './constants.js'
 import { el, mediaType } from './helpers.js'
 
-// ─── Preview Renderers ────────────────────────────────────────────────────────
-
 /**
  * Class hooks on the two layers a contained image is made of, so a live preview
  * can find and re-point them without rebuilding the pair every frame.
@@ -122,12 +120,9 @@ export function renderOutputPreview(wrap, task, deps) {
 /**
  * Update an existing running card's preview without recreating the spinner.
  *
- * The live preview is composed exactly like a finished one, and that is the
- * whole point. This path used to be hardcoded to `object-fit:cover` while
- * finished cards were contained, so the last streamed frame was a full-bleed
- * crop and the finished image that replaced it was a fitted one — every single
- * generation ended with the picture visibly jumping and reframing. Matching the
- * two makes the handover invisible: the picture simply sharpens.
+ * The live preview must compose identically to a finished one. If it does not,
+ * the handover when the output arrives is a visible reframe instead of the
+ * picture simply sharpening.
  *
  * `retargetContain` keeps the two layers and swaps their `src`, so a stream
  * arriving 20 times a second re-points existing nodes instead of building and

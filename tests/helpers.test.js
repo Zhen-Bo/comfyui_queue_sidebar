@@ -84,7 +84,7 @@ describe('showToast', () => {
         expect(toast.style.transform).toContain('16px') // offset below resting position
     })
 
-    it('removes the toast after the (halved) default duration', () => {
+    it('removes the toast after the default duration plus its fade', () => {
         vi.useFakeTimers()
         showToast('bye')
         expect(document.body.querySelector('div')).not.toBeNull()

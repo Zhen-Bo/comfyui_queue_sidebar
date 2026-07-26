@@ -300,11 +300,10 @@ function onProgressPreview({ detail }) {
   if (state.running.length === 0) return
   clearProgressUrl()
   state.progressUrl = URL.createObjectURL(detail)
-  // b_preview fires 5–20x/s. A full render() at that rate re-runs keyed
-  // reconciliation over every card plus syncToolbar() for no visual gain — the
-  // only thing that changed is one image src — and any class-toggle animation
-  // on a card would be restarted 20x/s by the rebuild. Update in place instead
-  // and fall back to render() only when the running card is not on screen.
+  // b_preview fires 5–20x/s. A full render() at that rate walks every card in the
+  // reconciliation pass and re-syncs the toolbar, when the only thing that changed
+  // is one image src. Update in place instead, and fall back to render() only when
+  // the running card is not on screen.
   const card = gridEl?.querySelector('[data-status="running"]')
   if (card) updateRunningPreview(card, state.progressUrl)
   else render() // sidebar closed or running card not yet on screen
