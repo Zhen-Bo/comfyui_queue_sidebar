@@ -1220,6 +1220,20 @@ describe('toolbar stylesheet', () => {
         expect(css).not.toContain('transition:all')
     })
 
+    it('keeps the flash rule after the hover rules, which is the only reason it wins', () => {
+        createClearHistoryButton(makeDeps(makeState({ pending: 2, history: 3 })))
+        const css = styleSheetText()
+        const hover = css.indexOf('.queue-toolbar-btn:hover')
+        const flash = css.indexOf('.queue-btn-flash')
+        expect(hover).toBeGreaterThan(-1)
+        expect(flash).toBeGreaterThan(-1)
+        // `.queue-toolbar-btn.queue-btn-flash` and `.queue-toolbar-btn:hover` are each a
+        // class plus one more simple selector, so specificity is a tie and sheet order is
+        // the only thing deciding the winner. Reorder the rule array and the flash stops
+        // painting over hover — silently, with every other assertion here still passing.
+        expect(flash).toBeGreaterThan(hover)
+    })
+
     it('recedes the doomed cards with composited properties only', () => {
         createClearHistoryButton(makeDeps(makeState({ pending: 2, history: 3 })))
         const css = styleSheetText()

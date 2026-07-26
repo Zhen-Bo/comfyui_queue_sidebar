@@ -88,6 +88,14 @@ export const INTERRUPT_HIDE_DELAY_MS = 300
 export const DRAWER_REVEAL_MS = 240
 export const DRAWER_HIDE_MS = 160
 
+/**
+ * The card grid's class. Exported because this module owns the rules that select
+ * it while `queue-sidebar.js` owns the element — the same split `preview.js`
+ * handles with `PREVIEW_MEDIA_CLASS`. A literal in both places would let the two
+ * drift with nothing to catch it.
+ */
+export const GRID_CLASS = 'queue-sidebar-grid'
+
 const DANGER = STATUS_COLOR.failed
 
 // ─── Toolbar sync registry ────────────────────────────────────────────────────
@@ -200,7 +208,7 @@ function ensureToolbarStyle() {
         // Declared on every card, not just the receding ones, so restoring is as
         // smooth as leaving — a rule that only exists while the class is on would
         // snap back the instant it comes off.
-        `.queue-sidebar-grid>[data-status]{` +
+        `.${GRID_CLASS}>[data-status]{` +
         `transition:opacity ${RING_RETRACT_MS}ms ${EASE_OUT},transform ${RING_RETRACT_MS}ms ${EASE_OUT}}`,
         `.queue-clearing-all>[data-status]{opacity:.32;transform:scale(.965)}`,
         // Two ways to leave, one look. The hold clears everything, so every card
@@ -232,7 +240,7 @@ function ensureToolbarStyle() {
         `color ${PRESS_MS}ms ease-out,opacity ${PRESS_MS}ms ease-out}` +
         `.queue-toolbar-btn:active,.queue-toolbar-btn.queue-btn-pressed,` +
         `.queue-toolbar-btn.queue-btn-arming{transform:none;background-color:rgba(255,255,255,.18)}` +
-        `.queue-sidebar-grid>[data-status]{transition:opacity ${RING_RETRACT_MS}ms ease-out}` +
+        `.${GRID_CLASS}>[data-status]{transition:opacity ${RING_RETRACT_MS}ms ease-out}` +
         `.queue-clearing-all>[data-status]{transform:none}` +
         `.queue-cleared>[data-status],` +
         `.queue-clearing-history>[data-status]:not([data-status="pending"]):not([data-status="running"])` +

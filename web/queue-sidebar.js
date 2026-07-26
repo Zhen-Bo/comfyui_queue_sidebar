@@ -6,7 +6,7 @@ import { el, mediaType, safeApi } from './lib/helpers.js'
 import { openGallery } from './lib/gallery.js'
 import { showContextMenu } from './lib/contextMenu.js'
 import { makePreview, updateRunningPreview } from './lib/preview.js'
-import { buildToolbar, syncToolbar, destroyToolbar } from './lib/toolbar.js'
+import { buildToolbar, syncToolbar, destroyToolbar, GRID_CLASS } from './lib/toolbar.js'
 import {
   getComfyLocale, updateTabBadge, normalizeQueue, normalizeHistoryItem,
 } from './lib/comfyAdapter.js'
@@ -264,7 +264,7 @@ function buildSidebar(sidebarEl) {
   )
   // Hook for the toolbar's stylesheet: cards need their recede transition
   // declared up-front so returning from a cancelled hold eases back too.
-  gridEl.className = 'queue-sidebar-grid'
+  gridEl.className = GRID_CLASS
   scrollEl.appendChild(gridEl)
   sidebarEl.appendChild(scrollEl)
   render()
