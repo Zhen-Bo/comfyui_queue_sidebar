@@ -35,7 +35,6 @@ export function attachZoomPan(media) {
 
     const apply = () => {
         media.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${scale})`
-        // Cursor affordance: grab when panning is available, grabbing mid-drag.
         media.style.cursor = scale > ZOOM_MIN ? (dragging ? 'grabbing' : 'grab') : ''
     }
 
@@ -43,26 +42,26 @@ export function attachZoomPan(media) {
     // instead of starting a browser drag-and-drop ghost.
     media.addEventListener('dragstart', (e) => e.preventDefault())
 
-    // Zoom logic lives here but is not bound to `media` — see the doc comment
-    // above for why. openGallery calls this from its own content-level listener.
+    // Returned rather than bound here, so openGallery can attach it once at the
+    // overlay level and let the wheel work over the dark surround too.
     const onWheel = (e) => {
         if (!e.deltaY) return // ignore horizontal swipes (deltaY 0) — don't zoom or block scroll
         e.preventDefault()
         const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP
         scale = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, scale + delta))
-        if (scale <= ZOOM_MIN) { offsetX = 0; offsetY = 0 } // recenter when back at fit
+        if (scale <= ZOOM_MIN) { offsetX = 0; offsetY = 0 }
         apply()
     }
 
     media.addEventListener('pointerdown', (e) => {
-        if (scale <= ZOOM_MIN) return // panning only applies while zoomed in
+        if (scale <= ZOOM_MIN) return
         dragging = true
         startX = e.clientX
         startY = e.clientY
         startOffsetX = offsetX
         startOffsetY = offsetY
         media.setPointerCapture?.(e.pointerId) // keep tracking if the pointer leaves the element
-        apply() // switch to the grabbing cursor
+        apply()
     })
 
     media.addEventListener('pointermove', (e) => {
@@ -76,7 +75,7 @@ export function attachZoomPan(media) {
         if (!dragging) return
         dragging = false
         media.releasePointerCapture?.(e.pointerId)
-        apply() // revert the grabbing cursor back to grab
+        apply()
     }
     media.addEventListener('pointerup', endDrag)
     media.addEventListener('pointercancel', endDrag)
@@ -86,8 +85,6 @@ export function attachZoomPan(media) {
 
     return { onWheel }
 }
-
-// ─── Gallery Overlay ──────────────────────────────────────────────────────────
 
 /**
  * Backdrop fade-in. Shorter than the content so the dark ground is already
@@ -184,7 +181,7 @@ async function copyImage(item, t) {
         const blob = await res.blob()
         await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })])
         if (requestId !== copyRequestId) return // superseded by a newer copy
-        showToast(t('copied'), undefined, 'var(--p-green-500,#22c55e)') // success confirmation
+        showToast(t('copied'), undefined, 'var(--p-green-500,#22c55e)')
     } catch (err) {
         console.error('[QueueSidebar] Copy image failed:', err)
         if (requestId !== copyRequestId) return // superseded by a newer copy
@@ -235,8 +232,9 @@ export function openGallery(items, startIdx, deps = {}) {
         overlay.style.opacity = '0'
         content.style.transition = `opacity ${EXIT_MS}ms ${EASE_OUT}`
         content.style.opacity = '0'
-        // Timer, not transitionend: the event never fires for a detached or
-        // display:none'd overlay and the node would be stranded on screen.
+        // Timer, not transitionend: jsdom never fires that event at all, so a test
+        // would wait forever for a removal that never comes. The timer also removes
+        // the node whether or not the transition actually ran.
         setTimeout(() => overlay.remove(), EXIT_MS)
     }
 
@@ -297,7 +295,7 @@ export function openGallery(items, startIdx, deps = {}) {
     })
     content.appendChild(loadBtn)
 
-    // Top-left help hint bar (SparkToComfy-style) — a non-interactive affordance reminder.
+    // Top-left help hint bar — a non-interactive affordance reminder.
     const hint = el(
         'div',
         'position:fixed;top:16px;left:16px;max-width:calc(100vw - 120px);' +
@@ -312,10 +310,10 @@ export function openGallery(items, startIdx, deps = {}) {
     content.appendChild(hint)
 
     overlay.addEventListener('click', () => close())
-    // One listener for the lightbox's lifetime, bound to `content` (inset:0, so
-    // it already covers the full viewport including the dark surround) rather
-    // than to the media element — media is recreated per navigation, so binding
-    // there would accumulate listeners. Forwards to whichever media is current.
+    // One listener for the lightbox's lifetime, bound to `content` (inset:0, so it
+    // already covers the full viewport including the dark surround) and forwarding
+    // to whichever media is current. It is registered here and not inside show(),
+    // which runs on every navigation and would stack one listener per item viewed.
     content.addEventListener('wheel', (e) => currentZoom?.onWheel(e))
 
     const onKey = (e) => {
@@ -332,8 +330,8 @@ export function openGallery(items, startIdx, deps = {}) {
     show()
 
     if (animate) {
-        // Set on style directly, not via cssText, so these stay addressable when the
-        // flip below rewrites them.
+        // Set per-property, not via cssText: assigning cssText replaces the whole
+        // declaration, so the flip below would wipe whatever it did not repeat.
         overlay.style.opacity = '0'
         overlay.style.transition = `opacity ${BACKDROP_ENTER_MS}ms ${EASE_OUT}`
         content.style.opacity = '0'

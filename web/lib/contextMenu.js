@@ -1,8 +1,6 @@
 import { MENU_BG, EASE_OUT } from './constants.js'
 import { el, elHtml, safeApi, prefersReducedMotion } from './helpers.js'
 
-// ─── Context Menu ─────────────────────────────────────────────────────────────
-
 /**
  * Entrance only. Dismissal stays instant: a menu that lingers after the choice is
  * made reads as lag, and the click that closes it has already been acted on.
@@ -32,8 +30,8 @@ function renderMenu(items, x, y) {
     }
     const animate = !prefersReducedMotion()
     if (animate) {
-        // Set on style directly, not via cssText, so the animated properties stay
-        // addressable when the flip below writes transform-origin.
+        // Set per-property, not via cssText: assigning cssText replaces the whole
+        // declaration, so a later one would wipe whatever it did not repeat.
         menu.style.opacity = '0'
         menu.style.transform = 'scale(.97)'
         menu.style.transition = `opacity ${ENTER_MS}ms ${EASE_OUT},transform ${ENTER_MS}ms ${EASE_OUT}`
