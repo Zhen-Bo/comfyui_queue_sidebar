@@ -1,4 +1,4 @@
-import { GALLERY_NAV_BTN, GALLERY_CORNER_BTN } from './constants.js'
+import { GALLERY_NAV_BTN, GALLERY_CORNER_BTN, EASE_OUT } from './constants.js'
 import { el, elHtml, showToast, prefersReducedMotion } from './helpers.js'
 
 // ─── Zoom / pan (images only) ───────────────────────────────────────────────────
@@ -99,8 +99,6 @@ const BACKDROP_ENTER_MS = 140
 const CONTENT_ENTER_MS = 180
 /** Exit is one short fade for both layers: a lingering dismissal reads as lag. */
 const EXIT_MS = 100
-/** Strong ease-out. The built-in keywords are too soft to read at these durations. */
-const EASE_OUT = 'cubic-bezier(0.23,1,0.32,1)'
 
 /**
  * @returns {{ media: HTMLElement, zoom: {onWheel:(e:WheelEvent)=>void}|null }}

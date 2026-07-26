@@ -1,4 +1,4 @@
-import { TOOLBAR_BTN, STATUS_COLOR } from './constants.js'
+import { TOOLBAR_BTN, STATUS_COLOR, EASE_OUT } from './constants.js'
 import { el, safeApi, prefersReducedMotion } from './helpers.js'
 
 // ─── Tunables ─────────────────────────────────────────────────────────────────
@@ -83,9 +83,6 @@ export const INTERRUPT_HIDE_DELAY_MS = 300
  */
 export const CLEAR_PENDING_REVEAL_MS = 240
 export const CLEAR_PENDING_HIDE_MS = 160
-
-/** Strong ease-out. The built-in keywords are too soft to read at these durations. */
-const EASE_OUT = 'cubic-bezier(0.23,1,0.32,1)'
 
 const DANGER = STATUS_COLOR.failed
 

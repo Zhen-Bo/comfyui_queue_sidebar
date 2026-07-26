@@ -1,4 +1,4 @@
-import { MENU_BG } from './constants.js'
+import { MENU_BG, EASE_OUT } from './constants.js'
 import { el, elHtml, safeApi, prefersReducedMotion } from './helpers.js'
 
 // ─── Context Menu ─────────────────────────────────────────────────────────────
@@ -8,8 +8,6 @@ import { el, elHtml, safeApi, prefersReducedMotion } from './helpers.js'
  * made reads as lag, and the click that closes it has already been acted on.
  */
 const ENTER_MS = 120
-/** Strong ease-out. The built-in keywords are too soft to read at these durations. */
-const EASE_OUT = 'cubic-bezier(0.23,1,0.32,1)'
 
 let activeMenu = null
 

@@ -1,4 +1,4 @@
-import { IMAGE_EXTS, VIDEO_EXTS, AUDIO_EXTS } from './constants.js'
+import { IMAGE_EXTS, VIDEO_EXTS, AUDIO_EXTS, EASE_OUT } from './constants.js'
 
 // ─── DOM Helper ───────────────────────────────────────────────────────────────
 
@@ -63,7 +63,7 @@ export function showToast(message, duration = 1500, color = 'var(--p-red-500,#ef
         'padding:10px 20px;border-radius:8px;font-size:13px;' +
         `color:${color};border:1px solid ${color};` +
         'background-color:#1a1a1a;box-shadow:0 4px 12px rgba(0,0,0,.3);' +
-        'transition:opacity 220ms cubic-bezier(0.23,1,0.32,1),transform 220ms cubic-bezier(0.23,1,0.32,1)',
+        `transition:opacity 220ms ${EASE_OUT},transform 220ms ${EASE_OUT}`,
         message,
     )
     // Start below and transparent (set on style directly, not via cssText, so the
