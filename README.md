@@ -39,7 +39,7 @@ The new ComfyUI frontend (v1.33.1+) removed the sidebar Queue Panel with image p
 | 🏷️ **Status Tags**          | Color-coded tags with animated spinner for running tasks                       |
 | 🖱️ **Context Menu**         | Right-click to delete a task or load its workflow                              |
 | 🔢 **Pending Badge**        | Sidebar icon shows count of pending tasks                                      |
-| 🧹 **Clear All**            | One-click button to clear the entire queue & history                           |
+| 🧹 **Two Clear Buttons**    | Clear pending, clear history — or hold the bin to clear both                   |
 | ⚡ **No Frontend Patching** | Custom-node plugin — no frontend source files are modified                     |
 
 ---
@@ -57,7 +57,7 @@ cd ComfyUI/custom_nodes
 git clone https://github.com/Zhen-Bo/comfyui_queue_sidebar.git
 ```
 
-Restart ComfyUI. The **Queue** tab will appear in the sidebar (between "Assets" and "Node Library").
+Restart ComfyUI. The **Queue** tab will appear in the sidebar's icon rail, alongside ComfyUI's other extension tabs.
 
 ---
 
@@ -71,7 +71,7 @@ Delete the `comfyui_queue_sidebar` folder from `custom_nodes/`.
 
 - **ComfyUI frontend** v1.33.1+ (tested up to 1.39.19) · **ComfyUI core** tested up to 0.16.4
 - Works alongside the built-in bottom-panel queue without conflicts
-- The plugin uses the public extension API for registration and events. It additionally hooks a small number of internal APIs (e.g. `app.queuePrompt`, sidebar tab ordering) to provide a seamless experience — all such integration points are centralized in [`comfyAdapter.js`](web/lib/comfyAdapter.js) with feature detection and graceful degradation if the upstream shape changes
+- The plugin uses the public extension API for registration and events. A small number of ComfyUI-internal touch points — tab badge updates, locale detection, and queue/history schema normalisation — are centralized in [`comfyAdapter.js`](web/lib/comfyAdapter.js) with feature detection and graceful degradation if the upstream shape changes
 
 ---
 

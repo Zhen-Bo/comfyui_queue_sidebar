@@ -13,8 +13,10 @@
 
 本擴充是一組由 ComfyUI 從 `web/` 載入的 **Vanilla JS ES modules**（由 `__init__.py` 的
 `WEB_DIRECTORY` 宣告）。瀏覽器將其作為原生模組執行，`import` ComfyUI 自己的 `app` 與 `api`
-全域物件。無建置步驟、無執行期相依。所有對 ComfyUI 內部的耦合皆隔離於單一模組
-`comfyAdapter.js`。
+全域物件。無建置步驟、無執行期相依。ComfyUI 的 schema 與 locale 轉接集中於
+`comfyAdapter.js`；少數直接呼叫 `app` 的地方則分散在明確可指出的幾個呼叫點——
+`queue-sidebar.js` 的側邊欄註冊／切換，以及 `contextMenu.js`、`gallery.js` 中的
+`app.loadGraphData`。
 
 ---
 
@@ -50,7 +52,7 @@ flowchart TB
         main[queue-sidebar.js<br/>state · WS handlers · render · registration]
     end
 
-    subgraph coupling[ComfyUI Coupling Point]
+    subgraph coupling[ComfyUI Schema/Locale Adapter]
         adapter[comfyAdapter.js<br/>badge · schema · locale]
     end
 
@@ -58,11 +60,11 @@ flowchart TB
         preview[preview.js<br/>card previews]
         gallery[gallery.js<br/>view mode overlay]
         ctx[contextMenu.js<br/>right-click actions]
-        toolbar[toolbar.js<br/>fit · clear]
+        toolbar[toolbar.js<br/>clear]
     end
 
     subgraph core[Core / Utilities]
-        cache[outputCache.js<br/>localStorage + firstOutput]
+        cache[outputCache.js<br/>localStorage + taskOutputs/firstOutput]
         helpers[helpers.js<br/>el · mediaType · safeApi · toast]
         constants[constants.js<br/>styles · enums]
     end
@@ -83,6 +85,9 @@ flowchart TB
     toolbar --> constants
     preview --> constants
     adapter -.reads.-> comfyglobals[app / api globals]
+    main -.registers.-> comfyglobals
+    ctx -.loadGraphData.-> comfyglobals
+    gallery -.loadGraphData.-> comfyglobals
     helpers --> constants
 ```
 
@@ -157,10 +162,10 @@ flowchart LR
     clip[(Clipboard)]
     graph[app.loadGraphData]
 
-    server -->|REST + WS| state
+    server -->|REST + WS incl. executed| state
     state --> render --> dom
-    server -->|executed output| cache
-    cache -->|firstOutput| render
+    state -->|onExecuted: saveOutputCache| cache
+    cache -->|taskOutputs/firstOutput| render
     dom -->|click card| gallery
     gallery -->|Ctrl+C: fetch original blob| clip
     gallery -->|Load workflow| graph
@@ -173,9 +178,9 @@ flowchart LR
 | 決策 | 位置 | 理由 |
 |---|---|---|
 | Vanilla JS，無框架／建置 | 整個 `web/` | 原生 ES modules；無框架或建置步驟 |
-| 單一 ComfyUI 耦合點 | `comfyAdapter.js` | 上游變更時只需更新一個檔案 |
+| 集中式 schema／locale 轉接層 | `comfyAdapter.js` | 佇列／歷史 schema 或 locale 設定上游變更時，只需更新一個檔案 |
 | 與 ComfyUI 內部解耦 | 移除 tab 重排 + queuePrompt 補丁 | registry 合規 + 升級安全 |
-| 快取優先的輸出解析 | `outputCache.js` | 對多階段工作流程顯示正確圖片 |
+| 快取優先、單節點的輸出解析 | `outputCache.js` | 對多階段工作流程顯示正確圖片；不跨節點累加 |
 | 功能偵測降級 | `comfyAdapter.js` | ComfyUI 內部移動時絕不弄壞它 |
 
 ---
@@ -189,7 +194,18 @@ flowchart LR
 | `preview.js` | 卡片預覽渲染（image/video/running/pending） | `preview.test.js` |
 | `gallery.js` | View mode 覆蓋層：導覽、縮放、平移、複製、載入工作流程 | `gallery.test.js`（新） |
 | `contextMenu.js` | 依狀態的右鍵動作 | `contextMenu.test.js` |
-| `toolbar.js` | 適配切換、附確認的清除全部 | (透過 render/helpers) |
-| `outputCache.js` | `localStorage` 快取 + `firstOutput` 解析器 | `outputCache.test.js` |
+| `toolbar.js` | 清除等待中／中斷執行中（共用的抽屜式按鈕輔助函式）、清除歷史（長按同時清除全部） | `toolbar.test.js` |
+| `outputCache.js` | `localStorage` 快取 + `taskOutputs`/`firstOutput` 解析器 | `outputCache.test.js` |
 | `helpers.js` | `el`、`mediaType`、`safeApi`、`showToast` | `helpers.test.js` |
 | `constants.js` | 共用樣式、擴充列舉 | — |
+
+---
+
+## 9. 圖示授權說明
+
+側邊欄工具列的「清除等待中」按鈕（`toolbar.js`）採用 Lucide 的 `list-x` 圖形衍生創作。
+
+- **來源**：[Lucide Icons](https://lucide.dev) (`list-x`)
+- **授權**：ISC License
+- **版權宣告**：Copyright (c) 2026 Lucide Icons and Contributors
+- **授權全文**：https://github.com/lucide-icons/lucide/blob/main/LICENSE
