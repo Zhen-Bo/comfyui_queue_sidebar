@@ -31,6 +31,9 @@ export const HOLD_SLOP_PX = 12
  * Cancelling is the system answering, so it is fast; the hold is the user
  * thinking, so it is slow. Same reason a released rubber band snaps back
  * quicker than it was pulled.
+ *
+ * Also the card-grid's restore transition (`.queue-sidebar-grid>[data-status]`),
+ * so a cancelled hold's cards ease back on the same clock as the ring.
  */
 export const RING_RETRACT_MS = 200
 const RING_FADE_MS = 120
@@ -77,12 +80,13 @@ export const INTERRUPT_REVEAL_DELAY_MS = 0
 export const INTERRUPT_HIDE_DELAY_MS = 300
 
 /**
- * Animation durations for the clear-pending button's drawer reveal/hide motion.
+ * Drawer reveal/hide motion — shared by both conditional buttons (clear-pending,
+ * interrupt), since createDrawerButton drives both from these two constants.
  * Revealing is the system presenting a new available action, so it is smooth and deliberate (240ms).
  * Hiding is the system clearing away a stale offer, so it is snappier (160ms).
  */
-export const CLEAR_PENDING_REVEAL_MS = 240
-export const CLEAR_PENDING_HIDE_MS = 160
+export const DRAWER_REVEAL_MS = 240
+export const DRAWER_HIDE_MS = 160
 
 const DANGER = STATUS_COLOR.failed
 
@@ -95,9 +99,11 @@ const DANGER = STATUS_COLOR.failed
 //
 // Everything else on this toolbar is deliberately *not* in here. Labels describe
 // what a button does rather than what is queued this second, so they are set once
-// at build time. render() runs 5–20 times a second during a preview stream, and
-// sync() has to stay cheap enough to be uninteresting at that rate — which it is,
-// because it reads one number and usually returns having written nothing.
+// at build time. Most render() calls now come from discrete state changes, but
+// the sidebar-closed fallback in onProgressPreview can still call it at the
+// b_preview rate (5–20×/s), so sync() has to stay cheap enough to be
+// uninteresting even then — which it is, because it reads one number and
+// usually returns having written nothing.
 const syncers = new Set()
 
 // Anything a button leaves running (timers, rAF loops, pointer capture) registers
@@ -126,26 +132,6 @@ const CLEAR_STYLE_ID = 'queue-sidebar-clear-style'
  * `background:none` would make hover, press and flash unpaintable. Pseudo-classes
  * (`:hover`, `:active`, `:focus-visible`) and media queries cannot be expressed
  * inline at all. Geometry stays inline in TOOLBAR_BTN; state lives here.
- *
- * While the hold ring is filling, everything that is about to be deleted recedes
- * — so the answer to "how much am I destroying?" is the cards themselves, not a
- * number. Everything in the sidebar recedes (including any active running task, which is
- * interrupted as part of clearing all). The recede is opacity + scale only; both are composited,
- * so 64 cards can move at once without stealing frames from the ring that is filling right next to them.
- *
- * This rule is also what lets the trash button stay permanently enabled. It never
- * greys out when the history is empty — a control that flickers between live and
- * dead as tasks come and go is harder to read than one that simply always means
- * the same thing, and it is the one button whose position users navigate by. The
- * cost is a press that sometimes has nothing to delete, and the answer is right
- * here: hold with an empty queue and nothing recedes, because there was nothing
- * there. The grid reports the blast radius before the deletion happens, so
- * "nothing happened" is something the user watched, not something they have to
- * infer from silence.
- *
- * The clear-pending button takes the other route — present or absent, never
- * dimmed — because its whole subject is the queue, and a queue that is empty is
- * not a state it has anything to say about. See createClearPendingButton().
  */
 function ensureToolbarStyle() {
     if (document.getElementById(CLEAR_STYLE_ID)) return
@@ -160,12 +146,8 @@ function ensureToolbarStyle() {
         `color ${PRESS_MS}ms ease-out,opacity ${PRESS_MS}ms ease-out}`,
 
         // Hover is quarantined: on a touch screen a tap would otherwise leave the
-        // button stuck looking hovered long after the finger is gone.
-        //
-        // Clear-pending brightens from muted to default text colour.
-        // Trash carries standing red at rest and on hover. Interrupt rests at crisp
-        // text colour (var(--input-text,#eee)) so it reads as an active live control,
-        // revealing red danger colour + tint on hover before click.
+        // button stuck looking hovered long after the finger is gone. Colour
+        // rationale per button: see the rest-state rule below.
         `@media (hover:hover) and (pointer:fine){` +
         `.queue-toolbar-btn:hover{background-color:rgba(255,255,255,.1)}` +
         `.queue-clear-pending:hover{color:var(--input-text,#eee)}` +
@@ -197,23 +179,23 @@ function ensureToolbarStyle() {
         // conditional buttons are 0 width.
         `.queue-clear-pending,.queue-interrupt{width:26px;max-width:0;margin-right:0;opacity:0;overflow:hidden;` +
         `pointer-events:none;` +
-        `transition:max-width ${CLEAR_PENDING_HIDE_MS}ms ${EASE_OUT},margin-right ${CLEAR_PENDING_HIDE_MS}ms ${EASE_OUT},` +
-        `opacity ${CLEAR_PENDING_HIDE_MS}ms ${EASE_OUT},transform ${PRESS_MS}ms ${EASE_OUT},` +
+        `transition:max-width ${DRAWER_HIDE_MS}ms ${EASE_OUT},margin-right ${DRAWER_HIDE_MS}ms ${EASE_OUT},` +
+        `opacity ${DRAWER_HIDE_MS}ms ${EASE_OUT},transform ${PRESS_MS}ms ${EASE_OUT},` +
         `background-color ${PRESS_MS}ms ease-out,color ${PRESS_MS}ms ease-out}`,
 
         `.queue-clear-pending.queue-btn-visible,.queue-interrupt.queue-btn-visible{max-width:26px;margin-right:2px;opacity:1;pointer-events:auto;` +
-        `transition:max-width ${CLEAR_PENDING_REVEAL_MS}ms ${EASE_OUT},margin-right ${CLEAR_PENDING_REVEAL_MS}ms ${EASE_OUT},` +
-        `opacity ${CLEAR_PENDING_REVEAL_MS}ms ${EASE_OUT},transform ${PRESS_MS}ms ${EASE_OUT},` +
+        `transition:max-width ${DRAWER_REVEAL_MS}ms ${EASE_OUT},margin-right ${DRAWER_REVEAL_MS}ms ${EASE_OUT},` +
+        `opacity ${DRAWER_REVEAL_MS}ms ${EASE_OUT},transform ${PRESS_MS}ms ${EASE_OUT},` +
         `background-color ${PRESS_MS}ms ease-out,color ${PRESS_MS}ms ease-out}`,
 
         `.queue-clear-pending.queue-btn-gone{display:none}`,
         `.queue-interrupt.queue-btn-gone{display:none}`,
 
         `.queue-btn-drawer-inner{display:inline-flex;align-items:center;justify-content:center;width:26px;height:100%;` +
-        `transform:translateX(60%);transition:transform ${CLEAR_PENDING_HIDE_MS}ms ${EASE_OUT}}`,
+        `transform:translateX(60%);transition:transform ${DRAWER_HIDE_MS}ms ${EASE_OUT}}`,
 
         `.queue-btn-visible .queue-btn-drawer-inner{transform:translateX(0);` +
-        `transition:transform ${CLEAR_PENDING_REVEAL_MS}ms ${EASE_OUT}}`,
+        `transition:transform ${DRAWER_REVEAL_MS}ms ${EASE_OUT}}`,
 
         // Declared on every card, not just the receding ones, so restoring is as
         // smooth as leaving — a rule that only exists while the class is on would
@@ -308,9 +290,9 @@ function makeListXIcon() {
  *
  * Geometry note: the button is roughly 26px, so `inset:-3px` puts the ring in
  * the 2px gap between buttons. r=16 of a 36-unit box leaves 2 units of padding
- * each side, which is exactly the 2.5-wide stroke — so the stroke sits flush
- * against the viewBox edge and the ring reads as a hairline outline hugging the
- * button rather than a heavy collar around it.
+ * each side; half the 2.5-wide stroke (1.25) extends into that padding, leaving
+ * a 0.75-unit margin to the viewBox edge — thin enough that the ring reads as a
+ * hairline outline hugging the button rather than a heavy collar around it.
  */
 function makeRing() {
     const root = svg('svg', { viewBox: '0 0 36 36', 'aria-hidden': 'true' })
@@ -355,9 +337,8 @@ function makeRing() {
         /**
          * Cancel: wind the arc back instead of blanking it. The user pressed for
          * up to 1.2s, so the progress is a thing they built — snapping it to zero
-         * reads as a glitch, while watching it retract reads as "undone". Fast
-         * (200ms) and ease-out, because this is the system replying, not the user
-         * deliberating.
+         * reads as a glitch, while watching it retract reads as "undone" (see
+         * RING_RETRACT_MS for why this is fast).
          *
          * On completion (`collapse` false) the ring fades out still full —
          * collapsing it to zero would read as "cancelled", the opposite of what
@@ -514,15 +495,14 @@ function createDrawerButton(deps, { extraClass, title, innerContent, condition, 
     }
 
     /**
-     * Active hide (user-initiated click): hides the button immediately with zero delay
-     * and zero animation, applying `queue-btn-gone` (display:none) right away.
-     *
-     * Rationale for instant removal vs drawer retract:
-     * When the user explicitly clicks an action button (e.g. clear pending or interrupt), they expect
-     * instant feedback that their command was registered. Retracting via drawer animation
-     * after an active click feels sluggish. Because conditional buttons sit to the left of the
-     * pinned trash button, instant removal simply collapses the row leftward without shifting
-     * the trash button's position.
+     * Skips the drawer's retract fade/hide-delay and applies `queue-btn-gone`
+     * (display:none) right away — "immediately" relative to that animation, not
+     * to the click itself. Both `onClick` handlers below call this only after
+     * their own request has resolved, so the button still waits on the network
+     * first; what it skips afterwards is the sluggish extra beat of retracting
+     * via the normal drawer motion on top of a result the user is already owed.
+     * Because conditional buttons sit left of the pinned trash button, the jump
+     * just collapses the row leftward without shifting it.
      */
     const hideImmediately = () => {
         shown = false
@@ -547,7 +527,7 @@ function createDrawerButton(deps, { extraClass, title, innerContent, condition, 
         fadeTimer = setTimeout(() => {
             fadeTimer = null
             if (!shown) btn.classList.add('queue-btn-gone')
-        }, CLEAR_PENDING_HIDE_MS)
+        }, DRAWER_HIDE_MS)
     }
 
     /**
@@ -621,12 +601,10 @@ function createDrawerButton(deps, { extraClass, title, innerContent, condition, 
  * as "cancel queued list", completely distinct from pi-stop-circle on running
  * tasks and pi-ban on cancelled tasks.
  *
- * The button is present or absent, never dimmed. Its entire subject is the queue,
- * so an empty queue leaves it with nothing to be about — and a disabled control
- * still asks to be read and dismissed every time the eye passes it. Absent costs
- * nothing to ignore. It sits to the *left* of the trash button so that appearing
- * and disappearing grows and shrinks the row leftwards, leaving the trash button
- * pinned to the right edge where users aim for it.
+ * Present or absent, never dimmed, like every conditional button on this
+ * toolbar. It sits to the *left* of the trash button specifically so that
+ * appearing and disappearing grows and shrinks the row leftwards, leaving the
+ * trash button pinned to the right edge where users aim for it.
  *
  * @param {object} deps - { t, api, state, gridEl, render, refresh }
  */
@@ -800,12 +778,10 @@ export function createClearHistoryButton(deps) {
      * Invert the button for a beat so the completion reads as "the ring closed",
      * not "I let go". Short and non-blocking — the requests go out first.
      *
-     * Driven by a class rather than inline styles. The old version wrote
-     * `btn.style.background` and then restored it to the literal `'none'`, which
-     * left an inline declaration permanently outranking the stylesheet — hover
-     * and press would have been dead on this button from the first hold onwards.
-     * Removing a class leaves nothing behind, and the base rule's transition
-     * carries both the flash in and the fade out.
+     * Must stay class-driven: an inline style here would outrank the stylesheet
+     * and leave hover/press dead on this button afterwards. Removing a class
+     * leaves nothing behind, and the base rule's transition carries both the
+     * flash in and the fade out.
      */
     function flash() {
         btn.classList.add('queue-btn-flash')
@@ -831,7 +807,6 @@ export function createClearHistoryButton(deps) {
         })
 
         try {
-            // Sequence: 1. POST /queue {clear:true} -> 2. POST /interrupt (if running) -> 3. POST /history {clear:true}
             await postClear('/queue')
             if (state.running.length > 0) {
                 await safeApi(deps.api, '/interrupt', { method: 'POST' })

@@ -5,7 +5,8 @@
  *   - "clear pending" must never touch the history
  *   - "clear history" must never touch the queue
  *   - the hold must only fire when the ring actually completes
- *   - nothing may ever wipe the running task, which neither endpoint clears
+ *   - the hold clears the running task via `/interrupt`; neither `/queue` nor
+ *     `/history` alone ever touches it
  *
  * And about steadiness, which the two buttons reach by opposite routes. The
  * trash button never disables itself and never moves: it is the one users aim
