@@ -3,6 +3,7 @@ import {
     saveOutputCache,
     loadOutputCache,
     firstOutput,
+    taskOutputs,
     OUTPUT_CACHE_KEY,
     OUTPUT_CACHE_MAX,
 } from '../web/lib/outputCache.js'
@@ -24,18 +25,32 @@ describe('loadOutputCache', () => {
         expect(loadOutputCache(null)).toBeNull()
         expect(loadOutputCache(undefined)).toBeNull()
     })
+
+    it('normalises a legacy bare-object entry into a one-element array on read', () => {
+        // Entries written before the cache held arrays are a bare descriptor object.
+        const legacy = { filename: 'legacy.png', subfolder: '', type: 'output' }
+        localStorage.setItem(OUTPUT_CACHE_KEY, JSON.stringify({ 'prompt-legacy': legacy }))
+        expect(loadOutputCache('prompt-legacy')).toEqual([legacy])
+        expect(firstOutput({}, 'prompt-legacy')).toEqual(legacy)
+    })
 })
 
 describe('saveOutputCache', () => {
-    it('round-trips an output object', () => {
-        const output = { images: [{ filename: 'a.png', subfolder: '', type: 'output' }] }
-        saveOutputCache('prompt-1', output)
-        expect(loadOutputCache('prompt-1')).toEqual(output)
+    it('round-trips an array of output items', () => {
+        const items = [
+            { filename: 'a.png', subfolder: '', type: 'output' },
+            { filename: 'b.png', subfolder: '', type: 'output' },
+        ]
+        saveOutputCache('prompt-1', items)
+        expect(loadOutputCache('prompt-1')).toEqual(items)
     })
 
-    it('overwrites existing entry for the same promptId', () => {
-        const first = { images: [{ filename: 'a.png', subfolder: '', type: 'output' }] }
-        const second = { images: [{ filename: 'b.png', subfolder: '', type: 'output' }] }
+    it('overwrites existing entry for the same promptId with a new array', () => {
+        const first = [{ filename: 'a.png', subfolder: '', type: 'output' }]
+        const second = [
+            { filename: 'b0.png', subfolder: '', type: 'output' },
+            { filename: 'b1.png', subfolder: '', type: 'output' },
+        ]
         saveOutputCache('prompt-1', first)
         saveOutputCache('prompt-1', second)
         expect(loadOutputCache('prompt-1')).toEqual(second)
@@ -67,26 +82,33 @@ describe('saveOutputCache', () => {
     })
 })
 
-describe('firstOutput', () => {
+describe('taskOutputs / firstOutput', () => {
     it('returns null when outputs is empty', () => {
         expect(firstOutput({}, 'prompt-1')).toBeNull()
     })
 
-    it('returns the first image found in dict order (no cache)', () => {
+    it('returns all items from the first node found in dict order (no cache)', () => {
+        const a0 = { filename: 'a0.png', subfolder: '', type: 'output' }
+        const a1 = { filename: 'a1.png', subfolder: '', type: 'output' }
         const outputs = {
-            nodeA: { images: [{ filename: 'a.png', subfolder: '', type: 'output' }] },
+            nodeA: { images: [a0, a1] },
             nodeB: { images: [{ filename: 'b.png', subfolder: '', type: 'output' }] },
         }
-        expect(firstOutput(outputs, 'no-cache')).toEqual({ filename: 'a.png', subfolder: '', type: 'output' })
+        expect(taskOutputs(outputs, 'no-cache')).toEqual([a0, a1])
     })
 
-    it('returns cached output when promptId matches, ignoring dict order', () => {
-        const cached = { filename: 'cached.png', subfolder: 'sub', type: 'output' }
-        saveOutputCache('prompt-cached', cached)
-        const outputs = {
-            nodeA: { images: [{ filename: 'a.png', subfolder: '', type: 'output' }] },
-        }
-        expect(firstOutput(outputs, 'prompt-cached')).toEqual(cached)
+    it('cache selects the winning node for multi-stage workflows — later save wins, in full', () => {
+        const early = [{ filename: 'early.png', subfolder: '', type: 'output' }]
+        const final = [
+            { filename: 'final0.png', subfolder: '', type: 'output' },
+            { filename: 'final1.png', subfolder: '', type: 'output' },
+        ]
+        saveOutputCache('prompt-multi', early)
+        saveOutputCache('prompt-multi', final)
+        // Without the cache, dict iteration below would resolve to the early node.
+        const outputs = { nodeEarly: { images: early } }
+        expect(taskOutputs(outputs, 'prompt-multi')).toEqual(final)
+        expect(firstOutput(outputs, 'prompt-multi')).toEqual(final[0])
     })
 
     it('falls back to dict iteration when cache misses', () => {
@@ -105,11 +127,11 @@ describe('firstOutput', () => {
     })
 
     it.each([
-        ['gifs',  { gifs:  [{ filename: 'anim.gif', subfolder: '', type: 'output' }] }, { filename: 'anim.gif', subfolder: '', type: 'output' }],
-        ['video', { video: { filename: 'clip.mp4', subfolder: '', type: 'output' } },   { filename: 'clip.mp4', subfolder: '', type: 'output' }],
-        ['audio', { audio: { filename: 'sound.wav', subfolder: '', type: 'output' } },  { filename: 'sound.wav', subfolder: '', type: 'output' }],
-    ])('returns item for %s key', (_key, nodeOut, expected) => {
-        expect(firstOutput({ n: nodeOut }, undefined)).toEqual(expected)
+        ['gifs',  { gifs:  [{ filename: 'a.gif', subfolder: '', type: 'output' }, { filename: 'b.gif', subfolder: '', type: 'output' }] }, [{ filename: 'a.gif', subfolder: '', type: 'output' }, { filename: 'b.gif', subfolder: '', type: 'output' }]],
+        ['video', { video: { filename: 'clip.mp4', subfolder: '', type: 'output' } },   [{ filename: 'clip.mp4', subfolder: '', type: 'output' }]],
+        ['audio', { audio: { filename: 'sound.wav', subfolder: '', type: 'output' } },  [{ filename: 'sound.wav', subfolder: '', type: 'output' }]],
+    ])('%s: an array is preserved in full, a scalar normalises to a one-element array', (_key, nodeOut, expected) => {
+        expect(taskOutputs({ n: nodeOut }, undefined)).toEqual(expected)
     })
 
     it('prefers images key over later keys in the same node', () => {
@@ -122,5 +144,36 @@ describe('firstOutput', () => {
             },
         }
         expect(firstOutput(outputs, 'prompt-prefer')).toEqual(imgItem)
+    })
+
+    it('expands only the first matching node — never accumulates across nodes', () => {
+        // This is the core invariant: enumerating every node would put an upscale
+        // workflow's 512px base image next to its 2048px result.
+        const a0 = { filename: 'a0.png', subfolder: '', type: 'output' }
+        const a1 = { filename: 'a1.png', subfolder: '', type: 'output' }
+        const b0 = { filename: 'b0.png', subfolder: '', type: 'output' }
+        const b1 = { filename: 'b1.png', subfolder: '', type: 'output' }
+        const outputs = {
+            nodeA: { images: [a0, a1] },
+            nodeB: { images: [b0, b1] },
+        }
+        const result = taskOutputs(outputs, 'prompt-cross-node')
+        expect(result).toEqual([a0, a1])
+        expect(result).not.toContainEqual(b0)
+        expect(result).not.toContainEqual(b1)
+    })
+
+    it('firstOutput contract is unchanged: single descriptor for both a singleton and a batch cache entry', () => {
+        const singleton = { filename: 'single.png', subfolder: '', type: 'output' }
+        saveOutputCache('prompt-singleton', [singleton])
+        expect(firstOutput({}, 'prompt-singleton')).toEqual(singleton)
+
+        const batch = [
+            { filename: 'batch0.png', subfolder: '', type: 'output' },
+            { filename: 'batch1.png', subfolder: '', type: 'output' },
+            { filename: 'batch2.png', subfolder: '', type: 'output' },
+        ]
+        saveOutputCache('prompt-batch', batch)
+        expect(firstOutput({}, 'prompt-batch')).toEqual(batch[0])
     })
 })

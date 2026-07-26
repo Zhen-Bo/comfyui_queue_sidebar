@@ -6,11 +6,11 @@ import { el, mediaType, safeApi } from './lib/helpers.js'
 import { openGallery } from './lib/gallery.js'
 import { showContextMenu } from './lib/contextMenu.js'
 import { makePreview, updateRunningPreview } from './lib/preview.js'
-import { buildToolbar } from './lib/toolbar.js'
+import { buildToolbar, syncToolbar, destroyToolbar, GRID_CLASS } from './lib/toolbar.js'
 import {
   getComfyLocale, updateTabBadge, normalizeQueue, normalizeHistoryItem,
 } from './lib/comfyAdapter.js'
-import { firstOutput, saveOutputCache } from './lib/outputCache.js' // saveOutputCache wired in onExecuted (see below)
+import { firstOutput, taskOutputs, saveOutputCache, OUTPUT_KEYS } from './lib/outputCache.js'
 
 // ─── i18n ──────────────────────────────────────────────────────────────────────
 // Translations are loaded from web/locales/<locale>.json at startup, fetched with
@@ -50,7 +50,6 @@ const state = {
   pending: [],
   history: [],
   progressUrl: null,
-  imageFit: 'contain',
 }
 
 // ─── Data helpers ─────────────────────────────────────────────────────────────
@@ -107,15 +106,15 @@ async function refresh() {
 // ─── Gallery items ────────────────────────────────────────────────────────────
 
 function galleryItems() {
-  return state.history
-    .map((task) => {
-      const output = firstOutput(task.outputs, task.promptId)
-      if (!output) return null
-      const type = mediaType(output.filename)
-      if (type !== 'image' && type !== 'video') return null
-      return { task, output, type, url: viewUrl(output) }
-    })
-    .filter(Boolean)
+  return state.history.flatMap((task) =>
+    taskOutputs(task.outputs, task.promptId)
+      .map((output) => {
+        const type = mediaType(output.filename)
+        if (type !== 'image' && type !== 'video') return null
+        return { task, output, type, url: viewUrl(output) }
+      })
+      .filter(Boolean),
+  )
 }
 
 // ─── Card ─────────────────────────────────────────────────────────────────────
@@ -125,7 +124,6 @@ function previewDeps() {
     progressUrl: state.progressUrl,
     firstOutput,
     viewUrl,
-    imageFit: state.imageFit,
   }
 }
 
@@ -199,6 +197,7 @@ function updateBadge() {
 
 function render() {
   updateBadge()
+  syncToolbar()
   if (!gridEl) return
 
   const allTasks = [...state.pending, ...state.running, ...state.history]
@@ -263,6 +262,9 @@ function buildSidebar(sidebarEl) {
     'grid-template-columns:repeat(auto-fill,minmax(min(200px,100%),1fr));' +
     'gap:8px;padding:8px;align-content:start',
   )
+  // Hook for the toolbar's stylesheet: cards need their recede transition
+  // declared up-front so returning from a cancelled hold eases back too.
+  gridEl.className = GRID_CLASS
   scrollEl.appendChild(gridEl)
   sidebarEl.appendChild(scrollEl)
   render()
@@ -298,21 +300,28 @@ function onProgressPreview({ detail }) {
   if (state.running.length === 0) return
   clearProgressUrl()
   state.progressUrl = URL.createObjectURL(detail)
-  render()
+  // b_preview fires 5–20x/s. A full render() at that rate walks every card in the
+  // reconciliation pass and re-syncs the toolbar, when the only thing that changed
+  // is one image src. Update in place instead, and fall back to render() only when
+  // the running card is not on screen.
+  const card = gridEl?.querySelector('[data-status="running"]')
+  if (card) updateRunningPreview(card, state.progressUrl)
+  else render() // sidebar closed or running card not yet on screen
 }
 
 function onExecuted({ detail }) {
   const prompt_id = detail?.prompt_id
   const output = detail?.output
   if (!prompt_id || !state.running.some(t => t.promptId === prompt_id)) return
-  for (const key of ['images', 'gifs', 'video', 'audio']) {
+  for (const key of OUTPUT_KEYS) {
     const val = output?.[key]
     if (!val || (Array.isArray(val) && val.length === 0)) continue
-    const item = Array.isArray(val) ? val[0] : val
+    const items = Array.isArray(val) ? val : [val]
+    const item = items[0]
     if (item?.filename) {
       clearProgressUrl()
       state.progressUrl = viewUrl(item)
-      saveOutputCache(prompt_id, item)
+      saveOutputCache(prompt_id, items)
       render()
       break
     }
@@ -380,6 +389,7 @@ app.registerExtension({
 
       destroy() {
         clearProgressUrl()
+        destroyToolbar() // stop any hold timer / rAF still running in the toolbar
         gridEl = null
         scrollEl = null
       },

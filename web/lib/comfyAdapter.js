@@ -1,15 +1,15 @@
 /**
- * ComfyUI Adapter — Single integration point for all upstream coupling.
+ * ComfyUI Adapter — schema, locale and badge adaptation.
  *
- * This module centralizes every touch-point with ComfyUI internals so the rest
- * of the plugin depends only on clean, normalized interfaces.  When upstream
- * APIs change, only this file needs updating.
+ * What upstream returns, and what upstream calls its settings, is normalised
+ * here so the rest of the plugin works in terms of plain task objects.
  *
- * Integration points (all guarded with feature detection):
- *  1. badge update       — reads sidebarTabs to set iconBadge
- *  2. queue schema       — normalizes /queue response tuples
- *  3. history schema     — normalizes /history response shape
- *  4. locale detection   — reads Comfy.Locale setting
+ * This is not the only place that touches ComfyUI. Sidebar registration and the
+ * toggle command live in `queue-sidebar.js`, and `app.loadGraphData` is called
+ * from `contextMenu.js` and `gallery.js` — those are stable public API and are
+ * deliberately left at their call sites. An upstream change to the queue or
+ * history payload shape, or to the locale setting, lands here; a change to the
+ * extension or sidebar APIs does not.
  */
 
 // ─── Locale ───────────────────────────────────────────────────────────────────

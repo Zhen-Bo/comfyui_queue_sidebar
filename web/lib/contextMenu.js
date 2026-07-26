@@ -1,7 +1,11 @@
-import { MENU_BG } from './constants.js'
-import { el, elHtml, safeApi } from './helpers.js'
+import { MENU_BG, EASE_OUT } from './constants.js'
+import { el, elHtml, safeApi, prefersReducedMotion } from './helpers.js'
 
-// ─── Context Menu ─────────────────────────────────────────────────────────────
+/**
+ * Entrance only. Dismissal stays instant: a menu that lingers after the choice is
+ * made reads as lag, and the click that closes it has already been acted on.
+ */
+const ENTER_MS = 120
 
 let activeMenu = null
 
@@ -24,10 +28,34 @@ function renderMenu(items, x, y) {
         row.addEventListener('click', async () => { hideMenu(); await item.action() })
         menu.appendChild(row)
     }
+    const animate = !prefersReducedMotion()
+    if (animate) {
+        // Set per-property, not via cssText: assigning cssText replaces the whole
+        // declaration, so a later one would wipe whatever it did not repeat.
+        menu.style.opacity = '0'
+        menu.style.transform = 'scale(.97)'
+        menu.style.transition = `opacity ${ENTER_MS}ms ${EASE_OUT},transform ${ENTER_MS}ms ${EASE_OUT}`
+    }
     document.body.appendChild(menu)
     activeMenu = menu
-    menu.style.left = `${Math.min(x, innerWidth - menu.offsetWidth - 8)}px`
-    menu.style.top = `${Math.min(y, innerHeight - menu.offsetHeight - 8)}px`
+
+    // Measuring needs the menu in the document, so placement happens after append.
+    // Near the right/bottom edge the menu is pulled back off the cursor, which moves
+    // its visual anchor to that side — so the growth origin has to follow, or the
+    // menu appears to expand away from the corner it is pinned to.
+    const left = Math.min(x, innerWidth - menu.offsetWidth - 8)
+    const top = Math.min(y, innerHeight - menu.offsetHeight - 8)
+    menu.style.left = `${left}px`
+    menu.style.top = `${top}px`
+    if (animate) {
+        menu.style.transformOrigin = `${top < y ? 'bottom' : 'top'} ${left < x ? 'right' : 'left'}`
+        // Next frame → grow into place (a same-frame set wouldn't transition).
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+            if (activeMenu !== menu) return
+            menu.style.opacity = '1'
+            menu.style.transform = 'scale(1)'
+        }))
+    }
 }
 
 /**
@@ -90,6 +118,16 @@ export function showContextMenu(e, task, deps) {
     renderMenu(items, e.clientX, e.clientY)
 }
 
-// Global listeners for closing on click/escape
+// Global listeners for closing on outside interaction or Escape.
+// pointerdown (not click) so a press-and-hold elsewhere — e.g. the toolbar's 1.5s
+// trash hold — dismisses the menu the instant the press starts, not ~1.5s later
+// when click finally fires on release. Row clicks are exempted via `contains`, so
+// this can never beat the row's own click handler (line 32) to the punch.
+document.addEventListener('pointerdown', (e) => {
+    if (activeMenu && !activeMenu.contains(e.target)) hideMenu()
+})
+// click stays too: a click with no prior pointerdown (keyboard-triggered, detail
+// 0) would otherwise never dismiss the menu. hideMenu() is a no-op once already
+// hidden, so the two listeners overlapping is harmless.
 document.addEventListener('click', hideMenu)
 document.addEventListener('keydown', (e) => e.key === 'Escape' && hideMenu())

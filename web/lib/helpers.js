@@ -1,4 +1,4 @@
-import { IMAGE_EXTS, VIDEO_EXTS, AUDIO_EXTS } from './constants.js'
+import { IMAGE_EXTS, VIDEO_EXTS, AUDIO_EXTS, EASE_OUT } from './constants.js'
 
 // ─── DOM Helper ───────────────────────────────────────────────────────────────
 
@@ -28,6 +28,21 @@ export function mediaType(filename) {
     return 'unknown'
 }
 
+// ─── Motion ───────────────────────────────────────────────────────────────────
+
+/**
+ * True when the user has asked for less movement. Guarded because the host may
+ * not implement matchMedia (jsdom does not), and a missing API must mean "animate
+ * normally", never a thrown error mid-press.
+ */
+export function prefersReducedMotion() {
+    try {
+        return window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true
+    } catch {
+        return false
+    }
+}
+
 // ─── Toast Notification ───────────────────────────────────────────────────────
 
 /**
@@ -48,11 +63,11 @@ export function showToast(message, duration = 1500, color = 'var(--p-red-500,#ef
         'padding:10px 20px;border-radius:8px;font-size:13px;' +
         `color:${color};border:1px solid ${color};` +
         'background-color:#1a1a1a;box-shadow:0 4px 12px rgba(0,0,0,.3);' +
-        'transition:opacity .3s ease,transform .3s ease',
+        `transition:opacity 220ms ${EASE_OUT},transform 220ms ${EASE_OUT}`,
         message,
     )
-    // Start below and transparent (set on style directly, not via cssText, so the
-    // animated properties are addressable and survive per-property updates).
+    // Start below and transparent, set per-property rather than via cssText:
+    // assigning cssText replaces the whole declaration and would wipe these.
     toast.style.opacity = '0'
     toast.style.transform = 'translate(-50%,16px)'
     toast.className = 'queue-sidebar-toast'
@@ -63,6 +78,7 @@ export function showToast(message, duration = 1500, color = 'var(--p-red-500,#ef
         toast.style.transform = 'translate(-50%,0)'
     })
     setTimeout(() => {
+        toast.style.transition = 'opacity .3s ease,transform .3s ease'
         toast.style.opacity = '0' // fade out (position holds)
         setTimeout(() => toast.remove(), 300)
     }, duration)

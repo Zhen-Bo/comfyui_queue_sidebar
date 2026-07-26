@@ -176,3 +176,62 @@ describe('Card reuse logic (render reconciliation)', () => {
         expect(gridEl.children[2].dataset.status).toBe('completed')
     })
 })
+
+// ─── Test: b_preview narrow path ──────────────────────────────────────────────
+
+describe('b_preview narrow path (onProgressPreview)', () => {
+    /**
+     * Simulate the branch extracted from queue-sidebar.js onProgressPreview.
+     * b_preview fires 5–20x/s; the running card's preview is re-pointed in place
+     * rather than paying for a full render() — reconciliation over every card
+     * plus syncToolbar() — on every frame.
+     */
+    function onProgressPreview(gridEl, progressUrl, { updateRunningPreview, render }) {
+        const card = gridEl?.querySelector('[data-status="running"]')
+        if (card) updateRunningPreview(card, progressUrl)
+        else render()
+    }
+
+    let gridEl
+    let deps
+
+    beforeEach(() => {
+        gridEl = document.createElement('div')
+        deps = { updateRunningPreview: vi.fn(), render: vi.fn() }
+    })
+
+    it('updates the running card in place instead of re-rendering the grid', () => {
+        const running = createMockCard('a', 'running')
+        gridEl.append(createMockCard('z', 'completed'), running)
+
+        onProgressPreview(gridEl, 'blob:frame', deps)
+
+        expect(deps.updateRunningPreview).toHaveBeenCalledWith(running, 'blob:frame')
+        expect(deps.render).not.toHaveBeenCalled()
+    })
+
+    it('rebuilds nothing — the cards on screen are the same nodes afterwards', () => {
+        const before = [createMockCard('a', 'running'), createMockCard('b', 'completed')]
+        gridEl.append(...before)
+
+        onProgressPreview(gridEl, 'blob:frame', deps)
+
+        expect([...gridEl.children]).toEqual(before)
+    })
+
+    it('falls back to render() when the running card is not on screen', () => {
+        gridEl.appendChild(createMockCard('a', 'completed'))
+
+        onProgressPreview(gridEl, 'blob:frame', deps)
+
+        expect(deps.render).toHaveBeenCalledTimes(1)
+        expect(deps.updateRunningPreview).not.toHaveBeenCalled()
+    })
+
+    it('falls back to render() when the sidebar is closed (no grid)', () => {
+        onProgressPreview(null, 'blob:frame', deps)
+
+        expect(deps.render).toHaveBeenCalledTimes(1)
+        expect(deps.updateRunningPreview).not.toHaveBeenCalled()
+    })
+})

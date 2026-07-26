@@ -39,7 +39,7 @@ ComfyUI 新版前端（v1.33.1+）移除了側邊欄中帶有圖片預覽的 Que
 | 🏷️ **狀態標籤** | 彩色標籤搭配旋轉動畫顯示執行中的任務             |
 | 🖱️ **右鍵選單** | 右鍵刪除任務或載入其工作流程                     |
 | 🔢 **等待徽章** | 側邊欄圖示上顯示等待中的任務數量                 |
-| 🧹 **一鍵清除** | 一鍵清除所有佇列與歷史記錄                       |
+| 🧹 **兩顆清除鈕** | 分別清等待中與歷史；長按垃圾桶則兩者一起清除 |
 | ⚡ **免改前端** | 自訂節點插件——不修改任何前端原始檔案             |
 
 ---
@@ -57,7 +57,7 @@ cd ComfyUI/custom_nodes
 git clone https://github.com/Zhen-Bo/comfyui_queue_sidebar.git
 ```
 
-重新啟動 ComfyUI。**Queue** 標籤會出現在側邊欄（位於「資產」和「節點」之間）。
+重新啟動 ComfyUI。**Queue** 標籤會出現在側邊欄圖示列中，與其他擴充標籤並列。
 
 ---
 
@@ -71,7 +71,7 @@ git clone https://github.com/Zhen-Bo/comfyui_queue_sidebar.git
 
 - **ComfyUI 前端** v1.33.1+（已測試至 1.39.19）· **ComfyUI 核心** 已測試至 0.16.4
 - 與內建的底部面板佇列並行運作，不會衝突
-- 插件使用公開的擴充 API 進行註冊和事件監聽。此外會掛鉤少量內部 API（如 `app.queuePrompt`、側邊欄分頁排序）以提供無縫體驗——所有此類整合點均集中於 [`comfyAdapter.js`](web/lib/comfyAdapter.js)，搭配功能偵測與優雅降級機制
+- 插件使用公開的擴充 API 進行註冊和事件監聽。少量 ComfyUI 內部接觸點——badge 更新、locale 偵測、佇列／歷史 schema 正規化——集中於 [`comfyAdapter.js`](web/lib/comfyAdapter.js)，搭配功能偵測與優雅降級機制
 
 ---
 

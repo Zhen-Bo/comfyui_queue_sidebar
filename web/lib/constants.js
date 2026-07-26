@@ -13,6 +13,14 @@ export const STATUS_COLOR = {
     cancelled: 'var(--p-orange-500,#f97316)',
 }
 
+// ─── Motion ───────────────────────────────────────────────────────────────────
+
+/**
+ * Strong ease-out, shared by every transition in the project. The built-in
+ * keywords are too soft to read at the durations used here.
+ */
+export const EASE_OUT = 'cubic-bezier(0.23,1,0.32,1)'
+
 // ─── Shared Styles ────────────────────────────────────────────────────────────
 
 export const MUTED_ICON = 'font-size:2rem;color:var(--p-text-muted-color,#888)'
@@ -34,6 +42,8 @@ export const GALLERY_NAV_BTN =
 export const GALLERY_CORNER_BTN =
     'position:fixed;border:none;font-size:1.1rem;' +
     'padding:8px 12px;cursor:pointer;border-radius:6px'
+// Geometry only. `background` and `color` deliberately live in the injected
+// `.queue-toolbar-btn` rule instead: an inline `background:none` outranks every
+// stylesheet, so hover/active/flash states could never paint over it.
 export const TOOLBAR_BTN =
-    'background:none;border:none;cursor:pointer;padding:6px;border-radius:4px;' +
-    'color:var(--input-text,#eee);font-size:14px'
+    'border:none;cursor:pointer;padding:6px;border-radius:4px;font-size:14px'
