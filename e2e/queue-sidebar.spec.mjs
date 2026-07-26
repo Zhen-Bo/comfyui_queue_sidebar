@@ -253,8 +253,12 @@ test.describe('Queue Sidebar E2E', () => {
     }, promptId)
 
     expect(cacheEntry).not.toBeNull()
-    expect(typeof cacheEntry.filename).toBe('string')
-    expect(cacheEntry.filename.length).toBeGreaterThan(0)
+    // Cache values are an array of media descriptors (one per output item of the
+    // winning node) — see outputCache.saveOutputCache / taskOutputs.
+    expect(Array.isArray(cacheEntry)).toBe(true)
+    expect(cacheEntry.length).toBeGreaterThan(0)
+    expect(typeof cacheEntry[0].filename).toBe('string')
+    expect(cacheEntry[0].filename.length).toBeGreaterThan(0)
   })
 
   // ── #6 — No [QueueSidebar] console.warn during normal operation ────

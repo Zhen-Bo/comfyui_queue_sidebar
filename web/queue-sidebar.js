@@ -10,7 +10,7 @@ import { buildToolbar } from './lib/toolbar.js'
 import {
   getComfyLocale, updateTabBadge, normalizeQueue, normalizeHistoryItem,
 } from './lib/comfyAdapter.js'
-import { firstOutput, saveOutputCache } from './lib/outputCache.js' // saveOutputCache wired in onExecuted (see below)
+import { firstOutput, taskOutputs, saveOutputCache } from './lib/outputCache.js' // saveOutputCache wired in onExecuted (see below)
 
 // ─── i18n ──────────────────────────────────────────────────────────────────────
 // Translations are loaded from web/locales/<locale>.json at startup, fetched with
@@ -107,15 +107,15 @@ async function refresh() {
 // ─── Gallery items ────────────────────────────────────────────────────────────
 
 function galleryItems() {
-  return state.history
-    .map((task) => {
-      const output = firstOutput(task.outputs, task.promptId)
-      if (!output) return null
-      const type = mediaType(output.filename)
-      if (type !== 'image' && type !== 'video') return null
-      return { task, output, type, url: viewUrl(output) }
-    })
-    .filter(Boolean)
+  return state.history.flatMap((task) =>
+    taskOutputs(task.outputs, task.promptId)
+      .map((output) => {
+        const type = mediaType(output.filename)
+        if (type !== 'image' && type !== 'video') return null
+        return { task, output, type, url: viewUrl(output) }
+      })
+      .filter(Boolean),
+  )
 }
 
 // ─── Card ─────────────────────────────────────────────────────────────────────
@@ -308,11 +308,12 @@ function onExecuted({ detail }) {
   for (const key of ['images', 'gifs', 'video', 'audio']) {
     const val = output?.[key]
     if (!val || (Array.isArray(val) && val.length === 0)) continue
-    const item = Array.isArray(val) ? val[0] : val
+    const items = Array.isArray(val) ? val : [val]
+    const item = items[0]
     if (item?.filename) {
       clearProgressUrl()
       state.progressUrl = viewUrl(item)
-      saveOutputCache(prompt_id, item)
+      saveOutputCache(prompt_id, items)
       render()
       break
     }
