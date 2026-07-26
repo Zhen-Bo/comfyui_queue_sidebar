@@ -10,7 +10,7 @@ import { buildToolbar, syncToolbar, destroyToolbar } from './lib/toolbar.js'
 import {
   getComfyLocale, updateTabBadge, normalizeQueue, normalizeHistoryItem,
 } from './lib/comfyAdapter.js'
-import { firstOutput, taskOutputs, saveOutputCache } from './lib/outputCache.js' // saveOutputCache wired in onExecuted (see below)
+import { firstOutput, taskOutputs, saveOutputCache, OUTPUT_KEYS } from './lib/outputCache.js'
 
 // ─── i18n ──────────────────────────────────────────────────────────────────────
 // Translations are loaded from web/locales/<locale>.json at startup, fetched with
@@ -314,7 +314,7 @@ function onExecuted({ detail }) {
   const prompt_id = detail?.prompt_id
   const output = detail?.output
   if (!prompt_id || !state.running.some(t => t.promptId === prompt_id)) return
-  for (const key of ['images', 'gifs', 'video', 'audio']) {
+  for (const key of OUTPUT_KEYS) {
     const val = output?.[key]
     if (!val || (Array.isArray(val) && val.length === 0)) continue
     const items = Array.isArray(val) ? val : [val]

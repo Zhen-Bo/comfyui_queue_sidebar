@@ -56,7 +56,7 @@ export function loadOutputCache(promptId) {
 }
 
 // Keys checked in priority order when scanning node outputs
-const OUTPUT_KEYS = ['images', 'gifs', 'video', 'audio']
+export const OUTPUT_KEYS = ['images', 'gifs', 'video', 'audio']
 
 /**
  * Resolve every media item produced by the single node that "wins" for this
