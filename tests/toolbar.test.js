@@ -1673,11 +1673,13 @@ describe('destroyToolbar', () => {
 
 describe('locales', () => {
     it('define exactly the same keys, so no language can go silently untranslated', async () => {
-        const [en, zh] = await Promise.all([
+        const [en, zh, zhTW] = await Promise.all([
             import('../web/locales/en.json', { with: { type: 'json' } }),
             import('../web/locales/zh.json', { with: { type: 'json' } }),
+            import('../web/locales/zh-TW.json', { with: { type: 'json' } }),
         ])
         expect(Object.keys(zh.default).sort()).toEqual(Object.keys(en.default).sort())
+        expect(Object.keys(zhTW.default).sort()).toEqual(Object.keys(en.default).sort())
     })
 
     it('carry the toolbar strings the buttons actually ask for, and no stale ones', async () => {
