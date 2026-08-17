@@ -1,6 +1,6 @@
 [project]
 name = "comfyui-queue-sidebar"
-version = "1.4.0"
+version = "1.4.1"
 description = "ComfyUI sidebar extension — brings back the queue panel with image previews"
 license = { file = "LICENSE" }
 
